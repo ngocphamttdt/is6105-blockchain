@@ -1,0 +1,74 @@
+{
+  "days": 3302,
+  "first_day": "2017-08-17",
+  "last_day": "2026-08-31",
+  "incomplete_days_lt_24_bars": 30,
+  "incomplete_day_list": [
+    "2017-08-17:20",
+    "2017-09-06:17",
+    "2018-01-04:23",
+    "2018-02-08:1",
+    "2018-02-09:15",
+    "2018-06-26:14",
+    "2018-06-27:23",
+    "2018-07-04:17",
+    "2018-10-19:21",
+    "2018-11-14:17",
+    "2019-03-12:18",
+    "2019-05-15:14",
+    "2019-08-15:16",
+    "2019-11-13:22",
+    "2019-11-25:22",
+    "2020-02-09:23",
+    "2020-02-19:19",
+    "2020-03-04:23",
+    "2020-04-25:22",
+    "2020-06-28:21",
+    "2020-11-30:23",
+    "2020-12-21:21",
+    "2020-12-25:23",
+    "2021-02-11:23",
+    "2021-03-06:23",
+    "2021-04-20:22",
+    "2021-04-25:21",
+    "2021-08-13:20",
+    "2021-09-29:22",
+    "2023-03-24:23"
+  ],
+  "offhour_1h_bars": 43,
+  "zero_volume_1h_bars": 4,
+  "zero_volume_days": 0,
+  "days_abs_log_return_gt_0.2": [
+    "2017-09-14:0.213",
+    "2017-12-07:0.203",
+    "2018-01-16:0.217",
+    "2020-03-12:0.503"
+  ],
+  "vs_binance_native_1d": {
+    "open": {
+      "max_rel_diff_complete_days": 0.02155615368661073,
+      "days_rel_diff_gt_1e-9_complete": 2,
+      "days_rel_diff_gt_1e-9_incomplete": 0
+    },
+    "high": {
+      "max_rel_diff_complete_days": 0.0056322376886185094,
+      "days_rel_diff_gt_1e-9_complete": 1,
+      "days_rel_diff_gt_1e-9_incomplete": 1
+    },
+    "low": {
+      "max_rel_diff_complete_days": 0.0,
+      "days_rel_diff_gt_1e-9_complete": 0,
+      "days_rel_diff_gt_1e-9_incomplete": 0
+    },
+    "close": {
+      "max_rel_diff_complete_days": 0.022220581721541323,
+      "days_rel_diff_gt_1e-9_complete": 1,
+      "days_rel_diff_gt_1e-9_incomplete": 1
+    },
+    "volume": {
+      "max_rel_diff_complete_days": 0.02428540541238004,
+      "days_rel_diff_gt_1e-9_complete": 6,
+      "days_rel_diff_gt_1e-9_incomplete": 2
+    }
+  }
+}

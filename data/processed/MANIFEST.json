@@ -1,0 +1,42 @@
+{
+  "version": "v1.0",
+  "created_utc": "2026-10-27T17:58:42+00:00",
+  "flows_sets": {
+    "A": [
+      "cm_NetflowExNtv",
+      "cm_SplyExNtv"
+    ],
+    "B": [
+      "cm_FlowInExNtv",
+      "cm_FlowOutExNtv",
+      "cm_SplyExNtv"
+    ]
+  },
+  "flows_set_chosen": null,
+  "files": {
+    "master_daily.csv": {
+      "sha256": "bae8d2ea2e59558dd0af26ad8037087d9fb04d18e84849893bf33f72a0bb06a3",
+      "rows": 3896,
+      "cols": 24,
+      "source": "crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/master_daily.csv"
+    },
+    "ohlcv_1h_clean.csv": {
+      "sha256": "149c78ecb277134e344d069a18adc75feeed85a0dc06bfab34418ba4a57105ae",
+      "rows": 78761,
+      "cols": 9,
+      "source": "crawl_data/vi_ohlcv_flows/data/clean/ohlcv_1h_clean.csv"
+    },
+    "data_dictionary_A.csv": {
+      "sha256": "6d086400c066fde88559f849754fcbd0836d979b65a73e156de323f80fe5e7ea",
+      "rows": 29,
+      "cols": 14,
+      "source": "crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/data_dictionary.csv"
+    },
+    "data_dictionary_B.csv": {
+      "sha256": "c109cadf81d70b5188562b7ec75e0a849c659c9bfb141e057ab54e9b446c0bb5",
+      "rows": 29,
+      "cols": 14,
+      "source": "crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/data_dictionary.csv"
+    }
+  }
+}

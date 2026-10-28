@@ -1,0 +1,8 @@
+# Biến đổi On-chain (proposal mục 3, task 1.16)
+flows_set: A           # A: cm_NetflowExNtv + cm_SplyExNtv; B: cm_FlowInExNtv + cm_FlowOutExNtv + cm_SplyExNtv (chờ chốt họp 1.19)
+ma_short: 7
+ma_long: 30
+z_window: 90
+shift_days: 1          # CoinMetrics công bố ngày d sau 00:00 UTC ngày d+1 khoảng 2–9,5 giờ -> On-chain chỉ dùng đến t−1
+ffill_limit: 3         # điền ngày nguồn không công bố bằng giá trị trước đó; lỗ dài nhất: bc_difficulty 3 ngày
+signed_cols: [cm_NetflowExNtv]  # cột có thể <= 0 -> diff, MA7 − MA30, z-score trên giá trị gốc

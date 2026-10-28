@@ -1,0 +1,4 @@
+# B0 majority class (Ngọc, task 3.8): p̂ = tỷ lệ ngày tăng trong cửa sổ train; không tune
+class: b0maj
+params:
+  strategy: prior

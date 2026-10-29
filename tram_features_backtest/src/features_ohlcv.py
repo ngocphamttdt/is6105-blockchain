@@ -4,27 +4,47 @@ features_ohlcv.py  –  Task 1.13 (Trâm)
 
 Nguyên tắc: dòng ngày t chỉ dùng dữ liệu ĐẾN HẾT ngày t (UTC). Không dùng shift(-k).
 
-Đầu vào:
-  crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/master_daily.csv  (cột ohlcv_*, task 1.7)
-  crawl_data/vi_ohlcv_flows/data/clean/ohlcv_1h_clean.csv             (cột datetime, close, task 1.9)
+Đầu vào (chỉ đọc data freeze, không đọc crawl_data/):
+  data/processed/master_daily.csv     cột date, ohlcv_*        (giá ngày, cùng nguồn với nhãn y)
+  data/processed/ohlcv_1h_clean.csv   cột datetime, close      (giá 1h, chỉ để tính RV)
+  data/processed/MANIFEST.json        sha256: lệch thì dừng
 Đầu ra:
   tram_features_backtest/data/features_ohlcv.csv : cột date + 10 đặc trưng
 
-Ghi chú giờ thiếu: file 1h thiếu 127 giờ (sàn bảo trì). Return 1h được tính giữa hai nến
-liên tiếp có dữ liệu, nên return qua khoảng trống vẫn được cộng vào RV của ngày chứa nến sau.
-Như vậy RV không bị đánh giá thấp ở những ngày có giờ thiếu.
+Dùng trong pipeline của Ngọc (thay build_ohlcv_features tạm trong ngoc_pipeline/src/features.py):
+  from features_ohlcv import build_ohlcv_features
+  ohlcv = build_ohlcv_features(master)   # master = load_master(); trả cột date + 10 đặc trưng, cùng số dòng
+
+Ghi chú giờ thiếu: file 1h thiếu 127 giờ (sàn bảo trì) và không được điền. Return 1h được tính giữa hai
+nến liên tiếp có dữ liệu, nên phần biến động trong lúc sàn nghỉ vẫn được cộng vào RV của ngày chứa
+nến sau, RV không bị đánh giá thấp ở những ngày có giờ thiếu.
 """
+import hashlib
+import json
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+ROOT = Path(__file__).resolve().parents[2]                    # thư mục gốc repo
+PROCESSED = ROOT / "data/processed"
+MASTER = PROCESSED / "master_daily.csv"
+H1 = PROCESSED / "ohlcv_1h_clean.csv"
+OUT = Path(__file__).resolve().parents[1] / "data/features_ohlcv.csv"
 
+DATE = "date"
+OHLCV_COLS = ["ohlcv_open", "ohlcv_high", "ohlcv_low", "ohlcv_close", "ohlcv_volume"]
+FEATURES = ["logret_lag1", "logret_lag2", "logret_lag3", "logret_lag4", "logret_lag5",
+            "hl_range", "dlog_volume", "rsi_14", "rv_7d", "rv_30d"]
+
+
+# ---------------------------------------------------------------------------
+# Các phép biến đổi
+# ---------------------------------------------------------------------------
 def log_return_lags(close: pd.Series, n_lags: int = 5) -> pd.DataFrame:
-    """logret_lag1 = ln(C_t / C_{t-1}) (return của chính ngày t),
-       logret_lag2 = return ngày t-1, ... đến lag5.
-       -> nhóm cần thống nhất cách đặt tên 'trễ 1 ngày' với Ngọc/Khoa."""
+    """logret_lag1 = ln(C_t / C_{t-1}) là return của chính ngày t (cùng nghĩa ret_1 của Ngọc),
+       logret_lagk = return của ngày t-k+1."""
     r = np.log(close / close.shift(1))
     return pd.DataFrame({f"logret_lag{k}": r.shift(k - 1) for k in range(1, n_lags + 1)})
 
@@ -34,8 +54,8 @@ def hl_range(high, low, close) -> pd.Series:
 
 
 def dlog_volume(volume: pd.Series) -> pd.Series:
-    # +1 để tránh log(0) nếu có ngày volume = 0 (Vi đã đánh dấu những ngày này)
-    return np.log(volume + 1).diff()
+    """ln V_t − ln V_{t−1}. Ngày volume <= 0 (freeze hiện không có) thành NaN, không tự sửa dữ liệu."""
+    return np.log(volume.where(volume > 0)).diff()
 
 
 def rsi(close: pd.Series, period: int = 14) -> pd.Series:
@@ -52,8 +72,8 @@ def rsi(close: pd.Series, period: int = 14) -> pd.Series:
 
 def realized_vol(close_1h: pd.Series, windows=(7, 30)) -> pd.DataFrame:
     """Realized volatility từ log return 1h.
-       RV_ngày(d)  = tổng bình phương log return 1h trong ngày d (UTC)
-       RV_k(t)     = sqrt( tổng RV_ngày của k ngày gần nhất, tính cả ngày t )
+       RV_ngày(d) = tổng bình phương log return 1h trong ngày d (UTC)
+       RV_k(t)    = sqrt( tổng RV_ngày của k ngày gần nhất, tính cả ngày t )
        Không năm hoá; nếu cần thì nhân sqrt(365/k)."""
     close_1h = close_1h.sort_index()
     r1h = np.log(close_1h / close_1h.shift(1)).dropna()
@@ -63,7 +83,7 @@ def realized_vol(close_1h: pd.Series, windows=(7, 30)) -> pd.DataFrame:
 
 
 def build_features(daily: pd.DataFrame, close_1h: pd.Series) -> pd.DataFrame:
-    """daily: index = ngày UTC (DatetimeIndex), cột open/high/low/close/volume."""
+    """daily: index = ngày UTC (DatetimeIndex), cột open/high/low/close/volume, không có NaN."""
     daily = daily.sort_index()
     feats = [
         log_return_lags(daily["close"]),
@@ -73,39 +93,67 @@ def build_features(daily: pd.DataFrame, close_1h: pd.Series) -> pd.DataFrame:
     ]
     out = pd.concat(feats, axis=1)
     out = out.join(realized_vol(close_1h), how="left")
-    out.index.name = "date"
+    out.index.name = DATE
+    return out[FEATURES]
+
+
+# ---------------------------------------------------------------------------
+# Đọc data freeze
+# ---------------------------------------------------------------------------
+def _sha256(path) -> str:
+    """sha256 sau khi đổi CRLF -> LF. Trên Windows, Git (core.autocrlf=true) tự đổi xuống dòng của CSV
+       sang CRLF khi checkout: số liệu y nguyên nhưng byte khác, nên phải chuẩn hoá trước khi so MANIFEST
+       (MANIFEST được tạo trên máy dùng LF)."""
+    return hashlib.sha256(Path(path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def verify_freeze(names=("master_daily.csv", "ohlcv_1h_clean.csv"), directory=PROCESSED) -> str:
+    """So sha256 với MANIFEST.json; lệch thì dừng (đang dùng sai phiên bản dữ liệu). Trả version."""
+    directory = Path(directory)
+    manifest = json.loads((directory / "MANIFEST.json").read_text(encoding="utf-8"))
+    bad = [n for n in names if _sha256(directory / n) != manifest["files"][n]["sha256"]]
+    if bad:
+        raise ValueError(f"File không khớp MANIFEST {manifest['version']}: {bad}. "
+                         "Kéo bản mới nhất (git pull) hoặc báo Khoa/Vi.")
+    return manifest["version"]
+
+
+def load_close_1h(path=H1) -> pd.Series:
+    h1 = pd.read_csv(path)
+    return pd.Series(h1["close"].to_numpy(), index=pd.to_datetime(h1["datetime"], utc=True), name="close")
+
+
+def build_ohlcv_features(master: pd.DataFrame, close_1h: pd.Series | None = None) -> pd.DataFrame:
+    """Giao diện cho pipeline của Ngọc: nhận master (cột date + ohlcv_*), trả DataFrame cột date
+       (datetime64[ns], không múi giờ) + 10 đặc trưng, cùng số dòng và thứ tự với master.
+       Ngày chưa có giá (trước 17/08/2017) thì đặc trưng là NaN."""
+    if close_1h is None:
+        close_1h = load_close_1h()
+    dates = pd.to_datetime(master[DATE]).astype("datetime64[ns]")
+    daily = master[OHLCV_COLS].set_axis(pd.DatetimeIndex(dates).tz_localize("UTC"))
+    daily = daily.rename(columns=lambda c: c.replace("ohlcv_", "")).dropna()
+    feats = build_features(daily, close_1h)
+    feats.index = feats.index.tz_localize(None)
+    out = feats.reindex(pd.DatetimeIndex(dates)).reset_index(drop=True)
+    out.insert(0, DATE, dates.to_numpy())
     return out
 
 
-ROOT = Path(__file__).resolve().parents[2]          # thư mục gốc repo
-MASTER = ROOT / "crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/master_daily.csv"
-H1 = ROOT / "crawl_data/vi_ohlcv_flows/data/clean/ohlcv_1h_clean.csv"
-OUT = Path(__file__).resolve().parents[1] / "data/features_ohlcv.csv"
-
-
-def load_and_build(master_path=MASTER, h1_path=H1, out_path=OUT):
-    """Giá ngày lấy từ master_daily.csv (Khoa, cột ohlcv_*) để khớp với nhãn y;
-       giá 1h lấy từ ohlcv_1h_clean.csv (Vi) để tính realized volatility."""
-    m = pd.read_csv(master_path, parse_dates=["date"])
-    m.index = pd.DatetimeIndex(m["date"]).tz_localize("UTC")
-    daily = (m[["ohlcv_open", "ohlcv_high", "ohlcv_low", "ohlcv_close", "ohlcv_volume"]]
-             .rename(columns=lambda c: c.replace("ohlcv_", ""))
-             .dropna())                                  # bỏ 2016 – 08/2017 (chưa có Binance)
-    h1 = pd.read_csv(h1_path)
-    h1.index = pd.to_datetime(h1["datetime"], utc=True)
-    feats = build_features(daily, h1["close"])
-    feats.index = feats.index.tz_localize(None).date     # ghi ngày dạng YYYY-MM-DD như master
-    feats.index.name = "date"
-    feats.to_csv(out_path)
-    print(f"Đã lưu {out_path}: {feats.shape}")
+def load_and_build(out_path=OUT):
+    version = verify_freeze()
+    master = pd.read_csv(MASTER, parse_dates=[DATE])
+    feats = build_ohlcv_features(master).dropna(subset=["hl_range"])   # bỏ 2016 – 16/08/2017 (chưa có giá)
+    feats.to_csv(out_path, index=False, date_format="%Y-%m-%d")
+    print(f"Data freeze {version}: sha256 khớp. Đã lưu {out_path}: {feats.shape}")
     print("Số NaN mỗi cột (do warm-up ở đầu chuỗi 2017):")
-    print(feats.isna().sum().to_string())
-    print("Từ 2018-01-01 còn NaN:", int(feats.loc[pd.Timestamp('2018-01-01').date():].isna().sum().sum()))
+    print(feats.drop(columns=DATE).isna().sum().to_string())
+    print("Từ 2017-12-31 (ngày train đầu của fold 0) còn NaN:",
+          int(feats.loc[feats[DATE] >= "2017-12-31", FEATURES].isna().sum().sum()))
     return feats
 
 
 # ----------------------------------------------------------------------------
-# Test trên dữ liệu giả:  python features_ohlcv.py
+# Test trên dữ liệu giả:  python features_ohlcv.py --test
 # ----------------------------------------------------------------------------
 def _fake_data(n_days=200, seed=1):
     rng = np.random.default_rng(seed)
@@ -116,6 +164,15 @@ def _fake_data(n_days=200, seed=1):
                           "close": g.last(),
                           "volume": rng.uniform(1e3, 5e3, n_days)})
     return daily, c1h
+
+
+def _fake_master(daily: pd.DataFrame, n_before=10) -> pd.DataFrame:
+    """Dạng master: cột date không múi giờ, có vài ngày đầu chưa có giá (NaN) như freeze thật."""
+    m = daily.rename(columns=lambda c: f"ohlcv_{c}")
+    m.index = m.index.tz_localize(None)
+    before = pd.date_range(end=m.index[0] - pd.Timedelta(days=1), periods=n_before, freq="D")
+    m = pd.concat([pd.DataFrame(index=before, columns=m.columns, dtype=float), m])
+    return m.rename_axis(DATE).reset_index()
 
 
 def _tests():
@@ -129,17 +186,52 @@ def _tests():
     c1h2[c1h2.index >= cut + pd.Timedelta(days=1)] *= 3
     f2 = build_features(daily2, c1h2)
     pd.testing.assert_frame_equal(f.loc[:cut], f2.loc[:cut])
+    assert not f.loc[cut:].iloc[1:].equals(f2.loc[cut:].iloc[1:])      # phép thử có tác dụng
 
     # 2) Kiểm tra giá trị cụ thể
     t = daily.index[50]
     assert np.isclose(f.loc[t, "logret_lag1"],
                       np.log(daily.loc[t, "close"] / daily.loc[daily.index[49], "close"]))
     assert np.isclose(f.loc[t, "logret_lag2"], f.loc[daily.index[49], "logret_lag1"])
+    assert np.isclose(f.loc[t, "dlog_volume"],
+                      np.log(daily.loc[t, "volume"] / daily.loc[daily.index[49], "volume"]))
     assert f["rsi_14"].dropna().between(0, 100).all()
     assert (f["rv_30d"].dropna() > 0).all()
 
+    # 3) Giao diện cho pipeline Ngọc: cột date + 10 đặc trưng, cùng số dòng/thứ tự với master,
+    #    ngày chưa có giá thì NaN, giá trị khớp build_features
+    m = _fake_master(daily)
+    o = build_ohlcv_features(m, c1h)
+    assert list(o.columns) == [DATE] + FEATURES and len(o) == len(m)
+    assert o[DATE].dtype == "datetime64[ns]" and (o[DATE].to_numpy() == m[DATE].to_numpy()).all()
+    assert o.iloc[:10, 1:].isna().all().all()
+    np.testing.assert_allclose(o.iloc[10:, 1:].to_numpy(), f.to_numpy(), equal_nan=True)
+
+    # 4) Giao diện cũng không nhìn tương lai
+    m2 = m.copy()
+    fut = m2[DATE] > cut.tz_localize(None)
+    m2.loc[fut, OHLCV_COLS] *= 3
+    o2 = build_ohlcv_features(m2, c1h2)
+    pd.testing.assert_frame_equal(o.loc[~fut], o2.loc[~fut])
+
+    # 5) verify_freeze bắt được file bị sửa
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "a.csv").write_text("x\n1\n")
+        man = {"version": "vtest", "files": {"a.csv": {"sha256": _sha256(tmp / "a.csv")}}}
+        (tmp / "MANIFEST.json").write_text(json.dumps(man))
+        assert verify_freeze(["a.csv"], tmp) == "vtest"
+        (tmp / "a.csv").write_bytes(b"x\r\n1\r\n")                     # Windows đổi xuống dòng: vẫn khớp
+        assert verify_freeze(["a.csv"], tmp) == "vtest"
+        (tmp / "a.csv").write_text("x\n2\n")
+        try:
+            verify_freeze(["a.csv"], tmp)
+            raise AssertionError("Phải báo lỗi khi file lệch MANIFEST")
+        except ValueError:
+            pass
+
     print("Tất cả test features đều PASS")
-    print(f.dropna().head().round(4))
 
 
 if __name__ == "__main__":

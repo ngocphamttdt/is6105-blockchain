@@ -8,6 +8,8 @@ Quy ước thời gian (rất quan trọng):
   - Lợi nhuận ngày t+1     = vị thế_{t+1} * return_{t+1} - phí * |vị thế_{t+1} - vị thế_t|
   - return_{t+1}           = C_{t+1} / C_t - 1 (return đơn giản, không phải log return)
 """
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -119,14 +121,23 @@ def _tests():
     print(summarize(run_backtest(close, perfect)).round(3))
 
 
+ROOT = Path(__file__).resolve().parents[2]                     # thư mục gốc repo
+REPORTS = Path(__file__).resolve().parents[1] / "reports"
+PRED_DIR = ROOT / "ngoc_pipeline/results/predictions"
+
+
+def load_close() -> pd.Series:
+    """Giá đóng cửa ngày từ data freeze (data/processed), kiểm sha256 trước khi đọc."""
+    from features_ohlcv import MASTER, verify_freeze
+    verify_freeze(["master_daily.csv"])
+    m = pd.read_csv(MASTER, parse_dates=["date"]).set_index("date")
+    return m["ohlcv_close"].dropna()
+
+
 def demo_real_data():
     """Chạy thử trên giá thật, giai đoạn test 01/2020 – 08/2026 của đề xuất,
        với 2 tín hiệu không cần mô hình: luôn long, và B0 persistence (ŷ_{t+1} = y_t)."""
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[2]
-    m = pd.read_csv(root / "crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/master_daily.csv",
-                    parse_dates=["date"]).set_index("date")
-    close = m["ohlcv_close"].dropna()
+    close = load_close()
     # p_hat của ngày t dự báo cho t+1; để ngày test đầu tiên là 2020-01-01 thì p_hat bắt đầu 2019-12-31
     t_idx = close.loc["2019-12-31":"2026-08-30"].index
     signals = {
@@ -139,15 +150,61 @@ def demo_real_data():
         s = summarize(run_backtest(close, p))
         print(f"\n== {name}\n{s.round(3)}")
         lines += [f"## {name}", "", s.round(3).to_markdown(), ""]
-    out = Path(__file__).resolve().parents[1] / "reports/backtest_sanity.md"
+    out = REPORTS / "backtest_sanity.md"
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"\nĐã lưu {out}")
 
 
+def backtest_predictions(pred_dir=PRED_DIR, threshold: float = 0.5, fee: float = FEE) -> pd.DataFrame:
+    """Backtest mọi file {model}_{config}.csv trong ngoc_pipeline/results/predictions/.
+       Quy ước của Ngọc: dòng date = t có y_true = 1[close_{t+1} > close_t] và p_hat dự báo cho t+1,
+       đúng với quy ước của run_backtest. Hàm kiểm lại quy ước này bằng y_true trước khi chạy."""
+    close = load_close()
+    y_check = (close.shift(-1) > close).astype(int)
+    rows = []
+    for f in sorted(Path(pred_dir).glob("*_*.csv")):
+        model, config = f.stem.split("_", 1)
+        p = pd.read_csv(f, parse_dates=["date"]).set_index("date")
+        if not (p["y_true"] == y_check.reindex(p.index)).all():
+            raise ValueError(f"{f.name}: y_true không khớp 1[close_(t+1) > close_t], sai quy ước ngày")
+        bt = run_backtest(close, p["p_hat"], threshold=threshold, fee=fee)
+        s = summarize(bt)
+        da = ((p["p_hat"] > threshold).astype(int) == p["y_true"]).mean()
+        rows.append({"model": model, "config": config, "da": da, **s.loc["strategy"].to_dict(),
+                     "first_day": bt.index[0].date(), "last_day": bt.index[-1].date(), "n_days": len(bt)})
+    if not rows:
+        raise FileNotFoundError(f"Không có file dự báo trong {pred_dir}")
+    out = pd.DataFrame(rows)
+    bh = summarize(bt).loc["buy_and_hold"].to_dict()                   # cùng khoảng ngày cho mọi file
+    out = pd.concat([out, pd.DataFrame([{"model": "buy_and_hold", "config": "-", "da": np.nan, **bh,
+                                         "first_day": bt.index[0].date(), "last_day": bt.index[-1].date(),
+                                         "n_days": len(bt)}])], ignore_index=True)
+    return out
+
+
+def report_predictions():
+    t = backtest_predictions()
+    REPORTS.mkdir(exist_ok=True)
+    t.to_csv(REPORTS / "backtest_e1_draft.csv", index=False)
+    show = t[["model", "config", "da", "cum_return", "sharpe", "mdd", "n_trades", "pct_days_long"]]
+    lines = ["# Backtest trên dự báo E1 nháp của Ngọc", "",
+             f"Tạo bởi `src/backtest.py` (hàm `report_predictions`) từ `ngoc_pipeline/results/predictions/`. "
+             f"Long nếu p̂ > 0,5, phí 0,1%/lượt, Sharpe năm hoá √365. "
+             f"Ngày giữ vị thế: {t.first_day.iloc[0]} → {t.last_day.iloc[0]} ({t.n_days.iloc[0]} ngày).", "",
+             "Chưa dùng để kết luận RQ1: dự báo E1 vẫn là bản nháp (OHLCV tạm 7 đặc trưng, chưa kiểm định).", "",
+             show.round(3).to_markdown(index=False), ""]
+    (REPORTS / "backtest_e1_draft.md").write_text("\n".join(lines), encoding="utf-8")
+    print("\n" + show.round(3).to_string(index=False))
+    print(f"\nĐã lưu {REPORTS / 'backtest_e1_draft.md'}")
+
+
 if __name__ == "__main__":
-    # python backtest.py         -> chạy test rồi chạy thử trên giá thật
+    # python backtest.py         -> chạy test, chạy thử trên giá thật, rồi backtest dự báo E1 của Ngọc
     # python backtest.py --test  -> chỉ chạy test
     import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     _tests()
     if "--test" not in sys.argv:
         demo_real_data()
+        if PRED_DIR.exists():
+            report_predictions()

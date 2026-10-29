@@ -109,10 +109,130 @@ Các giá trị khác của `role`:
    | `bc_est_tx_vol_usd`, `nvt_ratio_bc` | 8 | Blockchain.com thiếu dữ liệu |
    | `bc_difficulty` | 3 | Blockchain.com thiếu dữ liệu |
 
-   Giai đoạn mô hình dùng là từ 2018-01-01, nên chỉ còn vài ngày trống của Blockchain.com.
-4. **Ngày thiếu nến.** 29 ngày từ 2017-09 có `ohlcv_n_bars_1h < 24` do Binance bảo trì; nặng nhất là 2018-02-08 chỉ có 1 nến. Trong `ohlcv_1h_clean.csv`, 43 nến lệch +28 phút sau sự cố 09–11/02/2018 đã được làm tròn về đầu giờ và đánh dấu `flag_ts_shifted = True`. Giờ thiếu không được điền, nên khi tính return 1h cần kiểm tra hai nến liên tiếp cách nhau đúng 1 giờ.
+   Giai đoạn mô hình dùng là từ 2018-01-01, nên chỉ còn vài ngày trống của Blockchain.com. Xem thêm mục [Câu hỏi thường gặp](#câu-hỏi-thường-gặp).
+4. **Ngày thiếu nến.** 30 ngày có `ohlcv_n_bars_1h < 24`: ngày niêm yết 2017-08-17 và 29 ngày Binance bảo trì hoặc gặp sự cố. Nặng nhất là 2018-02-08, chỉ có 1 nến. Trong `ohlcv_1h_clean.csv`, 43 nến lệch +28 phút sau sự cố 09–11/02/2018 đã được làm tròn về đầu giờ và đánh dấu `flag_ts_shifted = True`. Giờ thiếu không được điền, nên khi tính return 1h cần kiểm tra hai nến liên tiếp cách nhau đúng 1 giờ. Nguyên nhân và ảnh hưởng: xem [Câu hỏi thường gặp](#câu-hỏi-thường-gặp).
 5. **Flows là số liệu `flash`.** Giá trị Flows phụ thuộc danh sách ví sàn do CoinMetrics gắn nhãn, và có thể bị sửa lại về sau. Dữ liệu lịch sử vì vậy không phản ánh đúng thông tin có tại thời điểm đó. Điều này cần ghi vào Limitations.
 6. **Không tính tương quan giữa chỉ số On-chain và nhãn** trước khi chạy thí nghiệm (chống data snooping).
+
+## Câu hỏi thường gặp
+
+Các con số dưới đây được kiểm tra trên file v1.0 ngày 29/10/2026.
+
+### Vì sao 594 dòng đầu (2016-01-01 → 2017-08-16) trống các cột `ohlcv_*`?
+
+Binance chỉ có cặp BTCUSDT từ **2017-08-17**, nên trước đó không có giá. Các cột On-chain thì đủ từ 2016-01-01. Sau ngày 2017-08-17, các cột `ohlcv_*` không thiếu ngày nào.
+
+### Proposal dùng dữ liệu từ ngày nào? Sao master lại bắt đầu từ 2016?
+
+- **Proposal (mục 3. Data):** giai đoạn nghiên cứu là **01/01/2018 – 31/08/2026**, bao trọn hai kỳ halving (05/2020, 04/2024).
+- **Phần trước 2018 là warm-up**, theo kế hoạch phân công:
+  - CoinMetrics tải từ 01/2016 "để đủ warm-up cho MA365 của Puell" (task 1.3);
+  - Binance tải từ 09/2017 "để đủ warm-up cho z-score 90 ngày và MA30" (task 1.8).
+- **Walk-forward khớp với mốc 2018.** Test từ 01/2020, train 730 ngày, nên fold đầu train từ khoảng 2017-12-31.
+- **Ngoại lệ:** khi kiểm tra độ nhạy với cửa sổ 1.095 ngày, fold đầu cần dữ liệu từ khoảng 01/2017, sớm hơn ngày có giá Binance. Các fold đó thực tế được train trên ít ngày hơn 1.095. Cần ghi điều này trong báo cáo.
+
+### Vì sao `puell_multiple` trống 364 ngày đầu?
+
+Công thức là:
+
+```
+Puell(t) = IssTotUSD(t) / trung bình 365 ngày gần nhất của IssTotUSD
+```
+
+Một ngày chỉ có Puell khi đã có đủ 365 ngày lịch sử. Dữ liệu bắt đầu 2016-01-01, nên ngày đầu có Puell là 2016-12-30. Giá trị trong file khớp đúng công thức này.
+
+### Các ô trống này có ảnh hưởng đến mô hình không?
+
+**Không.** Mô hình chỉ dùng dữ liệu từ khoảng 2017-12-31. Từ ngày đó:
+- 10 đặc trưng OHLCV (`features_ohlcv.csv`) không có ô trống nào; ngày đầu đủ cả 10 đặc trưng là 2017-09-30;
+- nhãn y không thiếu ngày nào.
+
+**Điểm cần lưu ý:** trong giai đoạn mô hình dùng vẫn còn vài ngày trống của Blockchain.com.
+
+| Cột | Số ngày trống | Có đưa vào mô hình không |
+|---|---|---|
+| `nvt_ratio_bc` | 8 | **Có** (`candidate`, Valuation) |
+| `bc_est_tx_vol_usd` | 8 | Không (`backup`) |
+| `bc_difficulty` | 3 | Không (`backup`) |
+
+Các ngày trống:
+- `nvt_ratio_bc` và `bc_est_tx_vol_usd` trống cùng 8 ngày: 2021-12-11, 2021-12-21, 2021-12-24, 2023-07-14, 2023-11-14, 2024-06-30, 2024-11-18 và 2025-06-24;
+- `bc_difficulty` trống 3 ngày, 2025-11-13 → 2025-11-15.
+
+- **Cách xử lý:** imputer nằm trong pipeline, chỉ fit trên train, nên vẫn đúng quy tắc không backfill.
+- **Lưu ý cho `features_onchain.py` (1.16):** một ngày trống có thể lan sang ngày sau qua log-diff, và tới 30 ngày sau qua MA7/MA30, tùy cách đặt `min_periods`.
+
+### Có nên xoá các dòng 2016 cho gọn không?
+
+**Không nên xoá khỏi file.** Nếu cần, hãy lọc trong code:
+
+```python
+master = master[master.index >= "2017-08-17"]   # hoặc master[master.ohlcv_close.notna()]
+```
+
+- **Lọc trong code, sau khi đọc file:** kết quả không đổi. Đã kiểm tra: biến đổi On-chain (log-diff, MA7/MA30, z-score 90 ngày) của cả 9 chỉ số đưa vào mô hình giống hệt từng giá trị từ 2017-08-17, dù có hay không có các dòng 2016.
+- **Xoá khỏi file:**
+  - sha256 không còn khớp `MANIFEST.json`;
+  - `src/data_freeze.py` sẽ sinh lại các dòng 2016 ở lần chạy sau;
+  - phải ra bản v1.1.
+- **Bỏ 2016 rồi tính lại Puell:** Puell chỉ có từ 2017-12-31, z-score 90 ngày của Puell chỉ có từ 2018-03-30. Các fold đầu sẽ thiếu khoảng 3 tháng đặc trưng Puell.
+
+### Vì sao có ngày không đủ 24 nến 1 giờ?
+
+Giờ nào Binance ngừng giao dịch thì giờ đó **không có lệnh khớp nên không có nến**. Binance Data Vision không ghi nến rỗng. Đây là trạng thái thật của sàn, không phải lỗi crawl hay làm sạch, nên không điền.
+
+Giờ thiếu (UTC) chia thành ba kiểu:
+
+| Kiểu | Ngày | Giờ thiếu (UTC) |
+|---|---|---|
+| Ngày niêm yết | 2017-08-17 | Trước khi BTCUSDT mở giao dịch (20 nến) |
+| Bảo trì định kỳ, **bắt đầu đúng 02:00 UTC** (10:00 giờ Singapore) | 2018-06-26 | 02h → 11h |
+| | 2018-11-14 | 02h → 08h |
+| | 2019-03-12 | 02h → 07h |
+| | 2019-08-15 | 02h → 09h |
+| | 2019-11-13, 2019-11-25, 2020-04-25, 2021-04-20 | 02h → 03h |
+| | 2020-06-28 | 02h → 04h |
+| | 2021-08-13 | 02h → 05h |
+| | 2020-02-09, 2020-12-25, 2021-03-06 | 02h |
+| Sự cố hoặc bảo trì đột xuất | 2018-02-08 01h → 2018-02-09 08h | **32 giờ liền**, sự cố lớn nhất |
+| | 2017-09-06 | 16h → 22h |
+| | 2018-01-04 | 04h |
+| | 2018-06-27 | 13h |
+| | 2018-07-04 | 01h → 07h |
+| | 2018-10-19 | 06h → 08h |
+| | 2019-05-15 | 03h → 12h |
+| | 2020-02-19 | 12h → 16h |
+| | 2020-03-04 | 10h |
+| | 2020-11-30 | 06h |
+| | 2020-12-21 | 15h → 17h |
+| | 2021-02-11 | 04h |
+| | 2021-04-25 | 05h → 07h |
+| | 2021-09-29 | 07h → 08h |
+| | 2023-03-24 | 13h |
+
+Nguyên nhân của từng sự cố chưa được đối chiếu với thông báo của Binance (binance.com/en/support/announcement). Ví dụ, 2018-07-04 nghi là sự cố giá Syscoin, 2023-03-24 nghi là lỗi lệnh trailing stop.
+
+### Thiếu nến có ảnh hưởng đến đặc trưng và mô hình không?
+
+**Chỉ đáng kể ở 2018-02-08 và 2018-02-09.** Bảng dưới đo z-score của đặc trưng so với toàn giai đoạn 2018+, trên các ngày thiếu nến và ngày ngay sau đó.
+
+| Ngày | Số nến | z của `dlog_volume` | Mức ảnh hưởng |
+|---|---|---|---|
+| 2018-02-08 | 1 | −7,9 | Lớn: volume gần như bằng 0 |
+| 2018-02-09 | 15 | +5,7 | Lớn: volume "tăng vọt" so với ngày trước |
+| 15 ngày trong giai đoạn test (2020–2023) | 19–23 | \|z\| ≤ 1,6 | Không đáng kể |
+| Các ngày khác của 2018–2019 | 14–23 | \|z\| ≤ 3,0 | Nhỏ |
+
+Ngày 2018-11-14 có z = 3,0, nhưng ngày đó thị trường sập mạnh nên volume cao là thật.
+
+- **`dlog_volume`:** bị ảnh hưởng nhiều nhất, vì volume ngày là tổng các nến.
+- **`hl_range`, `rv_7d`, `rv_30d`:** gần như không lệch.
+- **Nhãn y và log return:** không sai, vì giá đóng cửa vẫn là giá giao dịch thật cuối ngày.
+- **Mô hình:** hai ngày 2018-02-08 và 2018-02-09 chỉ nằm trong cửa sổ train của các fold đầu, tức 2 trong khoảng 730 mẫu mỗi fold, và không nằm trong giai đoạn test.
+
+Nếu muốn chắc chắn hơn, mà không sửa dữ liệu, có hai cách:
+1. Đặt `dlog_volume` thành trống cho ngày có `ohlcv_n_bars_1h < 20` và ngày ngay sau, rồi để imputer xử lý.
+2. Dùng volume trung bình mỗi giờ thay cho tổng volume ngày.
 
 ## Nguồn và giấy phép
 

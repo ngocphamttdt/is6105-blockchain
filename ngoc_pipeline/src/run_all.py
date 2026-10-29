@@ -25,8 +25,8 @@ import data as data_mod
 import features
 import models
 import walkforward
-from data import DATE, PREDICTION_COLS, RESULTS, TARGET, load_config, load_master, make_synthetic_master, \
-    read_csv_dated, verify_freeze, write_csv
+from data import DATE, PREDICTION_COLS, RESULTS, TARGET, load_config, load_master, make_synthetic_close_1h, \
+    make_synthetic_master, read_csv_dated, verify_freeze, write_csv
 from features import build_dataset
 from models import RULES, load_model
 from walkforward import make_folds, run_walkforward
@@ -109,7 +109,8 @@ def stage_e1(model_names, every=1):
 # ----------------------------------------------------------------------------
 def _tests():
     fe_cfg, wf_cfg = load_config("features_onchain.yaml"), load_config("walkforward.yaml")
-    data, sets = build_dataset(make_synthetic_master(seed=42), fe_cfg)
+    m = make_synthetic_master(seed=42)
+    data, sets = build_dataset(m, fe_cfg, make_synthetic_close_1h(m))
     folds = make_folds(data.loc[data[TARGET].notna(), DATE], **wf_cfg)[::40]
     with tempfile.TemporaryDirectory() as tmp:
         # 1) E1 chạy hết trên dữ liệu giả; CSV đọc lại khớp y nguyên; hai cấu hình cùng ngày test; B0 giống nhau

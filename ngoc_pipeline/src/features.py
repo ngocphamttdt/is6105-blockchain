@@ -9,35 +9,29 @@ On-chain: mỗi chỉ số cho 3 đặc trưng, cùng tham số cho mọi cột 
   Cột có dấu (Netflow) {col}_diff    = x_t − x_{t−1}           {col}_ma7m30 = MA7 − MA30   {col}_z90 = z-score 90 ngày của x
   Netflow âm ở khoảng một nửa số ngày nên không lấy log được; arcsinh cũng không dùng vì arcsinh(Netflow)
   gần như chỉ còn là dấu. Ngày nguồn không công bố được điền bằng giá trị trước đó, tối đa ffill_limit ngày.
-OHLCV: TẠM 7 đặc trưng (ret_1..ret_5, hl_range, dlog_volume), chờ bản đầy đủ của Trâm (RSI-14, RV).
+OHLCV: 10 đặc trưng từ tram_features_backtest/src/features_ohlcv.py (task 1.13 của Trâm): logret_lag1..5,
+  hl_range, dlog_volume, rsi_14, rv_7d, rv_30d. RV tính từ data/processed/ohlcv_1h_clean.csv.
 
 python features.py         -> chạy test rồi dựng dữ liệu thật, kiểm không còn NaN từ ngày train đầu tiên
 python features.py --test  -> chỉ chạy test
 """
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from data import (CLOSE, COL_GROUP, DATE, NETFLOW, OHLCV_COLS, ONCHAIN_GROUPS, TARGET, _raises,
-                  load_config, load_master, make_synthetic_master, onchain_columns)
+                  load_config, load_master, make_synthetic_close_1h, make_synthetic_master, onchain_columns)
+
+sys.path.append(str(Path(__file__).resolve().parents[2] / "tram_features_backtest/src"))
+from features_ohlcv import FEATURES as OHLCV_FEATURES, build_ohlcv_features  # noqa: E402
 
 
 def make_target(close: pd.Series) -> pd.Series:
     """y_t = 1 nếu close_{t+1} > close_t; NaN nếu thiếu một trong hai (ngày cuối, trước 17/08/2017)."""
     nxt = close.shift(-1)
     return (nxt > close).astype(float).where(nxt.notna() & close.notna()).rename(TARGET)
-
-
-def build_ohlcv_features(df: pd.DataFrame, n_lags=5) -> pd.DataFrame:
-    """TẠM. ret_1 = log return của chính ngày t, ret_k = return ngày t−k+1."""
-    log_ret = np.log(df[CLOSE].where(df[CLOSE] > 0)).diff()
-    feats = {f"ret_{k}": log_ret.shift(k - 1) for k in range(1, n_lags + 1)}
-    feats["hl_range"] = (df["ohlcv_high"] - df["ohlcv_low"]) / df[CLOSE]
-    feats["dlog_volume"] = np.log(df["ohlcv_volume"].where(df["ohlcv_volume"] > 0)).diff()
-    out = pd.DataFrame(feats).replace([np.inf, -np.inf], np.nan)
-    out.insert(0, DATE, df[DATE].to_numpy())
-    return out.reset_index(drop=True)
 
 
 # ---- On-chain ----
@@ -103,11 +97,12 @@ def feature_groups(cols=None, flows_set="A", signed_cols=(), ma_short=7, ma_long
     return {g: fs for g, fs in groups.items() if fs}
 
 
-def build_dataset(master: pd.DataFrame, fe_cfg: dict):
-    """Ghép nhãn + OHLCV + On-chain theo ngày. Trả (data, {"ohlcv": [cột], "ohlcv_onchain": [cột]})."""
+def build_dataset(master: pd.DataFrame, fe_cfg: dict, close_1h: pd.Series | None = None):
+    """Ghép nhãn + OHLCV + On-chain theo ngày. Trả (data, {"ohlcv": [cột], "ohlcv_onchain": [cột]}).
+    close_1h=None: đọc giá 1h của freeze (dữ liệu thật); test thì truyền make_synthetic_close_1h(master)."""
     df = master.copy()
     df[TARGET] = make_target(df[CLOSE])
-    ohlcv = build_ohlcv_features(df)
+    ohlcv = build_ohlcv_features(df, close_1h)
     data = df[[DATE, TARGET]].merge(ohlcv, on=DATE).merge(build_onchain_features(df, **fe_cfg), on=DATE)
     ohlcv_cols = [c for c in ohlcv.columns if c != DATE]
     onchain_cols = [f for fs in feature_groups(**fe_cfg).values() for f in fs]
@@ -120,6 +115,7 @@ def build_dataset(master: pd.DataFrame, fe_cfg: dict):
 def _tests():
     cfg = load_config("features_onchain.yaml")
     m = make_synthetic_master(seed=42)
+    h1 = make_synthetic_close_1h(m)
     rng = np.random.default_rng(1)
 
     # 1) Nhãn: y_t = [close_{t+1} > close_t]; không có giá thì NaN, không phải 0
@@ -141,10 +137,13 @@ def _tests():
                 f2 = build_onchain_features(m2, **c)
                 pd.testing.assert_frame_equal(f2.iloc[:cut + 1], base.iloc[:cut + 1])
                 assert not f2.iloc[cut + 1:].equals(base.iloc[cut + 1:])   # phép thử có tác dụng
-    o = build_ohlcv_features(m)
-    m2 = m.copy()
+    o = build_ohlcv_features(m, h1)
+    m2, h2 = m.copy(), h1.copy()
     m2.loc[m2.index > 1000, OHLCV_COLS] *= 3
-    pd.testing.assert_frame_equal(build_ohlcv_features(m2).iloc[:1001], o.iloc[:1001])
+    h2[h2.index >= pd.Timestamp(m.loc[1001, DATE], tz="UTC")] *= 3
+    o2 = build_ohlcv_features(m2, h2)
+    pd.testing.assert_frame_equal(o2.iloc[:1001], o.iloc[:1001])
+    assert not o2.iloc[1001:].equals(o.iloc[1001:])
 
     # 3) shift_days = 1 dịch đúng 1 dòng (On-chain ngày t−1 nằm ở dòng t)
     f0 = build_onchain_features(m, **{**cfg, "shift_days": 0}).drop(columns=DATE)
@@ -182,9 +181,10 @@ def _tests():
         assert [x for fs in groups.values() for x in fs] == list(build_onchain_features(m, **c).columns[1:])
         assert len(groups["Flows"]) == n_flows
 
-    # 8) build_dataset: bộ OHLCV-only nằm trong bộ đầy đủ, không chứa cột On-chain
-    data, sets = build_dataset(m, cfg)
-    assert set(sets["ohlcv"]) < set(sets["ohlcv_onchain"]) and len(data) == len(m)
+    # 8) build_dataset: bộ OHLCV-only là đúng 10 đặc trưng của Trâm, nằm trong bộ đầy đủ, không chứa cột On-chain
+    data, sets = build_dataset(m, cfg, h1)
+    assert sets["ohlcv"] == OHLCV_FEATURES and len(data) == len(m)
+    assert set(sets["ohlcv"]) < set(sets["ohlcv_onchain"])
     assert not any(x.startswith(("cm_", "bc_", "puell", "nvt")) for x in sets["ohlcv"])
     print("Tất cả test features đều PASS")
 

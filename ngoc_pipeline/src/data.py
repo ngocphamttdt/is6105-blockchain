@@ -132,6 +132,16 @@ def make_synthetic_master(start="2017-09-01", end="2026-08-31", seed=0) -> pd.Da
     return df
 
 
+def make_synthetic_close_1h(master: pd.DataFrame, seed=0) -> pd.Series:
+    """Giá 1h giả (index UTC) cho rv_7d, rv_30d khi test: 24 nến mỗi ngày quanh close ngày đó,
+    nến cuối ngày bằng đúng close ngày."""
+    rng = np.random.default_rng(seed)
+    idx = pd.date_range(master[DATE].iloc[0], periods=24 * len(master), freq="h", tz="UTC")
+    noise = rng.normal(0, 0.005, len(idx))
+    noise[23::24] = 0
+    return pd.Series(np.repeat(master[CLOSE].to_numpy(), 24) * np.exp(noise), index=idx, name="close")
+
+
 # ----------------------------------------------------------------------------
 # Test:  python data.py --test
 # ----------------------------------------------------------------------------

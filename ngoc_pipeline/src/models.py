@@ -14,6 +14,8 @@ Mô hình đã có:
   b0pers  B0 persistence: ngày mai cùng hướng hôm nay, p̂_t = 1[close_t > close_{t−1}]. Mức sàn cho DA.
           Không fit nên nằm trong RULES, không qua run_walkforward. p̂ chỉ là 0/1 nên log-loss không dùng được
   b3      B3 SVM RBF, xác suất hiệu chỉnh sigmoid trên điểm ngoài mẫu theo thời gian
+  b2      B2 Random Forest (bản chạy thử; Trâm sở hữu B2)
+  b4      B4 XGBoost, early stopping trên 20% cuối cửa sổ train (bản chạy thử; Khoa sở hữu B4)
 B0 không dùng đặc trưng, nên hai cấu hình OHLCV và OHLCV + On-chain cho cùng dự báo (Δ = 0).
 
 python models.py --test  -> chạy test
@@ -23,6 +25,7 @@ import pandas as pd
 import yaml
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.svm import SVC
@@ -61,6 +64,44 @@ class CalibratedSVC(ClassifierMixin, BaseEstimator):
         return self.classes_[(self.predict_proba(X)[:, 1] > 0.5).astype(int)]
 
 
+class EarlyStoppingXGB(ClassifierMixin, BaseEstimator):
+    """XGBoost. Chọn số cây bằng early stopping (log-loss) trên val_frac cuối cửa sổ train, bỏ gap dòng
+    giữa hai phần (cùng lý do gap của walk-forward), rồi fit lại trên toàn cửa sổ với số cây đã chọn.
+    Import xgboost lúc fit: máy chưa cài xgboost vẫn chạy được các mô hình khác."""
+
+    def __init__(self, learning_rate=0.05, max_depth=3, n_estimators=1000, early_stopping_rounds=50,
+                 subsample=0.8, colsample_bytree=0.8, min_child_weight=1, val_frac=0.2, gap=1,
+                 n_jobs=4, random_state=0):
+        self.learning_rate, self.max_depth, self.n_estimators = learning_rate, max_depth, n_estimators
+        self.early_stopping_rounds, self.subsample, self.colsample_bytree = early_stopping_rounds, subsample, colsample_bytree
+        self.min_child_weight, self.val_frac, self.gap = min_child_weight, val_frac, gap
+        self.n_jobs, self.random_state = n_jobs, random_state
+
+    def _xgb(self, **kw):
+        from xgboost import XGBClassifier
+        return XGBClassifier(learning_rate=self.learning_rate, max_depth=self.max_depth,
+                             subsample=self.subsample, colsample_bytree=self.colsample_bytree,
+                             min_child_weight=self.min_child_weight, eval_metric="logloss",
+                             n_jobs=self.n_jobs, random_state=self.random_state, **kw)
+
+    def fit(self, X, y):
+        X, y = np.asarray(X), np.asarray(y)
+        n_val = int(len(X) * self.val_frac)
+        cut = len(X) - n_val
+        probe = self._xgb(n_estimators=self.n_estimators, early_stopping_rounds=self.early_stopping_rounds)
+        probe.fit(X[:cut - self.gap], y[:cut - self.gap], eval_set=[(X[cut:], y[cut:])], verbose=False)
+        self.best_n_estimators_ = probe.best_iteration + 1
+        self.model_ = self._xgb(n_estimators=self.best_n_estimators_).fit(X, y)
+        self.classes_ = self.model_.classes_
+        return self
+
+    def predict_proba(self, X):
+        return self.model_.predict_proba(np.asarray(X))
+
+    def predict(self, X):
+        return self.classes_[(self.predict_proba(X)[:, 1] > 0.5).astype(int)]
+
+
 def persistence_predictions(data, folds, target=TARGET) -> pd.DataFrame:
     """B0 persistence: p̂_t = y_{t−1} = 1[close_t > close_{t−1}], đã biết khi ngày t kết thúc."""
     if (data[DATE].diff().iloc[1:] != pd.Timedelta(days=1)).any():
@@ -74,7 +115,8 @@ def persistence_predictions(data, folds, target=TARGET) -> pd.DataFrame:
     return pd.concat(out, ignore_index=True)[PREDICTION_COLS]
 
 
-REGISTRY = {"lr": LogisticRegression, "b0maj": DummyClassifier, "b3": CalibratedSVC}
+REGISTRY = {"lr": LogisticRegression, "b0maj": DummyClassifier, "b3": CalibratedSVC,
+            "b2": RandomForestClassifier, "b4": EarlyStoppingXGB}
 RULES = {"b0pers": persistence_predictions}     # mô hình theo luật: không fit, không tune
 
 
@@ -134,6 +176,25 @@ def _tests():
     # 5) b3 chạy qua walk-forward có tune
     res = run_walkforward(m, ["cm_AdrActCnt", "cm_TxCnt", "cm_HashRate"], est, folds[:2], param_grid=grid)
     assert res["p_hat"].between(0, 1).all() and res["fold"].nunique() == 2
+
+    # 6) b2 đọc đúng config và chạy qua walk-forward
+    est, grid = load_model("b2")
+    assert isinstance(est, RandomForestClassifier) and set(grid) == {"n_estimators", "max_depth", "min_samples_leaf"}
+    res = run_walkforward(m, ["cm_AdrActCnt", "cm_TxCnt"], est, folds[:1], param_grid={"n_estimators": [50]})
+    assert res["p_hat"].between(0, 1).all()
+
+    # 7) b4 (nếu cài được xgboost): xác suất hợp lệ, xếp hạng đúng hướng; số cây chọn bằng early stopping
+    try:
+        import xgboost  # noqa: F401
+    except Exception as e:
+        print(f"  Bỏ qua test b4: không import được xgboost ({type(e).__name__})")
+    else:
+        est, grid = load_model("b4")
+        assert isinstance(est, EarlyStoppingXGB) and set(grid) == {"learning_rate", "max_depth"}
+        fitted = clone(est).set_params(n_estimators=300).fit(X, y)
+        p = fitted.predict_proba(X)
+        assert np.allclose(p.sum(axis=1), 1) and 1 <= fitted.best_n_estimators_ <= 300
+        assert p[X[:, 0] > 1, 1].mean() > 0.6 > 0.4 > p[X[:, 0] < -1, 1].mean()
     print("Tất cả test models đều PASS")
 
 

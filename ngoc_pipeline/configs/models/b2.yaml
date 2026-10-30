@@ -1,0 +1,9 @@
+# B2 Random Forest (Trâm sở hữu, task 2.6; bản chạy thử của Ngọc): grid số cây, độ sâu, min_samples_leaf
+class: b2
+params:
+  n_jobs: -1
+  random_state: 0
+param_grid:
+  n_estimators: [200, 500]
+  max_depth: [3, 6, null]
+  min_samples_leaf: [20, 50]

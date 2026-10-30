@@ -1,0 +1,11 @@
+# B5 LSTM (Ngân, task 2.12; code ngan_lstm_hmm_analysis/model_lstm.py). Không qua GridSearchCV:
+# early stopping trên 20% cuối cửa sổ train. Chạy mỗi seed một lần; b5_{config}.csv là p̂ trung bình các seed.
+seeds: [42, 43, 44]
+params:
+  lookback: 30
+  hidden_size: 32
+  num_layers: 1
+  max_epochs: 50
+  patience: 5
+  batch_size: 32
+  lr: 0.001

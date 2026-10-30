@@ -73,10 +73,14 @@ def make_pipeline(estimator) -> Pipeline:
 
 
 def tune(pipe, param_grid, X, y, cv) -> dict:
-    """Grid search theo log-loss; param_grid dùng tên tham số của mô hình (không có tiền tố)."""
+    """Grid search theo log-loss; param_grid dùng tên tham số của mô hình (không có tiền tố).
+    Điểm làm tròn 10 chữ số, hoà thì lấy tổ hợp đứng trước trong grid: các tổ hợp cho cùng mô hình
+    (vd. RF max_depth None và 6 khi min_samples_leaf lớn) chỉ lệch nhau ~1e-16 do cộng song song,
+    nếu không làm tròn thì lần chạy lại có thể chọn tổ hợp khác."""
     grid = {f"model__{k}": v for k, v in param_grid.items()}
-    search = GridSearchCV(pipe, grid, scoring="neg_log_loss", cv=cv, refit=False).fit(X, y)
-    return {k.removeprefix("model__"): v for k, v in search.best_params_.items()}
+    res = GridSearchCV(pipe, grid, scoring="neg_log_loss", cv=cv, refit=False).fit(X, y).cv_results_
+    best = res["params"][int(np.argmax(np.round(res["mean_test_score"], 10)))]
+    return {k.removeprefix("model__"): v for k, v in best.items()}
 
 
 def run_walkforward(df, feature_cols, estimator, folds, param_grid=None, retune_every=6,
@@ -170,6 +174,12 @@ def _tests():
     res = run_walkforward(noise, ["n1", "n2"], LogisticRegression(), folds[::4], param_grid={"C": [0.1, 1.0]})
     assert list(res.columns) == PREDICTION_COLS and res["date"].is_unique
     assert abs(((res["p_hat"] > 0.5).astype(int) == res["y_true"]).mean() - 0.5) < 0.06
+
+    # 5b) Tune: hai tổ hợp chỉ lệch ~1e-15 điểm thì coi là hoà, luôn lấy tổ hợp đứng trước
+    tr, _ = fold_indices(noise, folds[0])
+    Xn, yn = noise.loc[tr, ["n1", "n2"]].to_numpy(), noise.loc[tr, TARGET].astype(int).to_numpy()
+    for grid in ([1.0, 1.0 + 1e-12], [1.0 + 1e-12, 1.0]):
+        assert tune(make_pipeline(LogisticRegression()), {"C": grid}, Xn, yn, inner_cv())["C"] == grid[0]
 
     # 6) Báo lỗi: train thiếu nhãn, NaN trong test, dữ liệu không đủ cho fold đầu (cửa sổ 1.095 ngày)
     bad = m.copy()

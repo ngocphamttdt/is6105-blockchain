@@ -48,8 +48,9 @@ def load_config(name) -> dict:
 
 
 def read_csv_dated(path) -> pd.DataFrame:
-    """Đọc CSV có cột `date`; trả cột `date` kiểu datetime64[ns]."""
-    df = pd.read_csv(path, parse_dates=[DATE])
+    """Đọc CSV có cột `date`; trả cột `date` kiểu datetime64[ns]. round_trip: số thực đọc lại đúng từng bit
+    như lúc ghi (parser mặc định của pandas 3 có thể lệch 1 ulp)."""
+    df = pd.read_csv(path, parse_dates=[DATE], float_precision="round_trip")
     df[DATE] = df[DATE].astype("datetime64[ns]")
     return df
 

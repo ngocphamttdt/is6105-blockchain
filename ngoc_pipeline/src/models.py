@@ -13,6 +13,12 @@ Mô hình đã có:
   b0maj   B0 majority class: p̂ = tỷ lệ ngày tăng trong train. Mức sàn cho log-loss, Brier
   b0pers  B0 persistence: ngày mai cùng hướng hôm nay, p̂_t = 1[close_t > close_{t−1}]. Mức sàn cho DA.
           Không fit nên nằm trong RULES, không qua run_walkforward. p̂ chỉ là 0/1 nên log-loss không dùng được
+  b0rev   B0 đảo chiều: ngày mai ngược hướng hôm nay, p̂_t = 1 − 1[close_t > close_{t−1}]. Chiều chọn lại trên
+          từng cửa sổ train: nếu persistence đúng ≥ 50% trong train thì dùng persistence (baseline_check, đề xuất 1).
+          Mọi mô hình có học phải được so với luật này. Cũng nằm trong RULES
+  lrfs    B1 có chọn đặc trưng tiến dần: bắt đầu từ cột đầu tiên (logret_lag1), mỗi bước thêm cột làm log-loss
+          inner CV (TimeSeriesSplit trong cửa sổ train) giảm nhiều nhất, dừng khi không giảm quá tol
+          (baseline_check, đề xuất 2)
   b3      B3 SVM RBF, xác suất hiệu chỉnh sigmoid trên điểm ngoài mẫu theo thời gian
   b2      B2 Random Forest (bản chạy thử; Trâm sở hữu B2)
   b4      B4 XGBoost, early stopping trên 20% cuối cửa sổ train (bản chạy thử; Khoa sở hữu B4)
@@ -27,7 +33,10 @@ from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
 from sklearn.model_selection import TimeSeriesSplit
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 from data import CLOSE, CONFIG_DIR, DATE, PREDICTION_COLS, TARGET, _raises, load_config, make_synthetic_master
@@ -102,22 +111,80 @@ class EarlyStoppingXGB(ClassifierMixin, BaseEstimator):
         return self.classes_[(self.predict_proba(X)[:, 1] > 0.5).astype(int)]
 
 
-def persistence_predictions(data, folds, target=TARGET) -> pd.DataFrame:
-    """B0 persistence: p̂_t = y_{t−1} = 1[close_t > close_{t−1}], đã biết khi ngày t kết thúc."""
+class ForwardSelectLR(ClassifierMixin, BaseEstimator):
+    """Logistic Regression chọn đặc trưng tiến dần. Luôn giữ `start` cột đầu; mỗi bước thử thêm từng cột còn lại,
+    lấy cột cho log-loss trung bình trên TimeSeriesSplit(cv_splits, gap) thấp nhất, dừng khi không giảm quá tol.
+    Mỗi split có scaler riêng, fit trên phần train của split. Chỉ dùng dữ liệu được fit (cửa sổ train của fold)."""
+
+    def __init__(self, C=1.0, start=1, cv_splits=5, gap=1, tol=1e-4, max_iter=1000):
+        self.C, self.start, self.cv_splits, self.gap, self.tol, self.max_iter = C, start, cv_splits, gap, tol, max_iter
+
+    def _lr(self):
+        return make_pipeline(StandardScaler(), LogisticRegression(C=self.C, max_iter=self.max_iter))
+
+    def _cv_loss(self, X, y, cols):
+        losses = [log_loss(y[va], self._lr().fit(X[tr][:, cols], y[tr]).predict_proba(X[va][:, cols])[:, 1],
+                           labels=[0, 1])
+                  for tr, va in TimeSeriesSplit(self.cv_splits, gap=self.gap).split(X)]
+        return float(np.mean(losses))
+
+    def fit(self, X, y):
+        X, y = np.asarray(X), np.asarray(y)
+        selected = list(range(self.start))
+        best = self._cv_loss(X, y, selected)
+        while len(selected) < X.shape[1]:
+            trials = {j: self._cv_loss(X, y, selected + [j]) for j in range(X.shape[1]) if j not in selected}
+            j, loss = min(trials.items(), key=lambda kv: kv[1])
+            if loss > best - self.tol:
+                break
+            selected.append(j)
+            best = loss
+        self.support_ = np.array(selected)
+        self.cv_loss_ = best
+        self.model_ = self._lr().fit(X[:, self.support_], y)
+        self.classes_ = self.model_.classes_
+        return self
+
+    def predict_proba(self, X):
+        return self.model_.predict_proba(np.asarray(X)[:, self.support_])
+
+    def predict(self, X):
+        return self.classes_[(self.predict_proba(X)[:, 1] > 0.5).astype(int)]
+
+
+def _direction_rule(data, folds, target, choose_flip) -> pd.DataFrame:
+    """Luật theo hướng giá hôm nay: p̂_t = y_{t−1} = 1[close_t > close_{t−1}], đã biết khi ngày t kết thúc.
+    choose_flip(train_y, train_y_prev) -> True thì đảo thành 1 − y_{t−1} cho cả fold."""
     if (data[DATE].diff().iloc[1:] != pd.Timedelta(days=1)).any():
         raise ValueError("Dữ liệu thiếu ngày: dòng trước không còn là ngày t−1.")
     y_prev, out = data[target].shift(1), []
     for fold in folds:
-        _, te = fold_indices(data, fold, target)
+        tr, te = fold_indices(data, fold, target)
+        ok = tr[y_prev.loc[tr].notna()]
+        p = y_prev.loc[te].to_numpy(dtype=float)
+        if choose_flip(data.loc[ok, target], y_prev.loc[ok]):
+            p = 1.0 - p
         out.append(pd.DataFrame({"date": data.loc[te, DATE].to_numpy(), "fold": fold.fold_id,
                                  "y_true": data.loc[te, target].astype(int).to_numpy(),
-                                 "p_hat": y_prev.loc[te].to_numpy(dtype=float), "regime": pd.NA}))
+                                 "p_hat": p, "regime": pd.NA}))
     return pd.concat(out, ignore_index=True)[PREDICTION_COLS]
 
 
+def persistence_predictions(data, folds, target=TARGET) -> pd.DataFrame:
+    """B0 persistence: p̂_t = y_{t−1} = 1[close_t > close_{t−1}], đã biết khi ngày t kết thúc."""
+    return _direction_rule(data, folds, target, lambda y, y_prev: False)
+
+
+def reversal_predictions(data, folds, target=TARGET) -> pd.DataFrame:
+    """B0 đảo chiều: p̂_t = 1 − y_{t−1} nếu trong cửa sổ train persistence đúng < 50%, ngược lại p̂_t = y_{t−1}.
+    Nhãn của ngày train cuối dùng close của ngày gap, nên việc chọn chiều không chạm ngày test nào."""
+    return _direction_rule(data, folds, target, lambda y, y_prev: (y == y_prev).mean() < 0.5)
+
+
 REGISTRY = {"lr": LogisticRegression, "b0maj": DummyClassifier, "b3": CalibratedSVC,
-            "b2": RandomForestClassifier, "b4": EarlyStoppingXGB}
-RULES = {"b0pers": persistence_predictions}     # mô hình theo luật: không fit, không tune
+            "b2": RandomForestClassifier, "b4": EarlyStoppingXGB, "lrfs": ForwardSelectLR}
+RULES = {"b0pers": persistence_predictions,     # mô hình theo luật: không fit, không tune
+         "b0rev": reversal_predictions}
 
 
 def register(name, cls):
@@ -164,6 +231,35 @@ def _tests():
     m2.loc[m2[DATE] > res["date"].max() + pd.Timedelta(days=1), CLOSE] *= 3
     m2[TARGET] = (m2[CLOSE].shift(-1) > m2[CLOSE]).astype(float).where(m2[CLOSE].shift(-1).notna())
     pd.testing.assert_frame_equal(persistence_predictions(m2, folds[:5]), res)
+
+    # 3b) b0rev: mỗi fold là đúng persistence hoặc đúng 1 − persistence, theo persistence trong cửa sổ train;
+    #     đổi giá sau ngày test cuối không đổi dự báo
+    rev = reversal_predictions(m, folds[:5])
+    for f in folds[:5]:
+        tr, _ = fold_indices(m, f)
+        y_tr, y_prev = m.loc[tr, TARGET], m[TARGET].shift(1).loc[tr]
+        flip = (y_tr == y_prev).mean() < 0.5
+        k = res["fold"] == f.fold_id
+        np.testing.assert_array_equal(rev.loc[k, "p_hat"], 1 - res.loc[k, "p_hat"] if flip else res.loc[k, "p_hat"])
+    pd.testing.assert_frame_equal(reversal_predictions(m2, folds[:5]), rev)
+    #     Chuỗi đảo chiều hoàn hảo trong train thì luật lật chiều và đúng 100% trên test
+    alt = m.copy()
+    alt[CLOSE] = 100 * np.where(np.arange(len(alt)) % 2, 1.1, 1.0)
+    alt[TARGET] = (alt[CLOSE].shift(-1) > alt[CLOSE]).astype(float).where(alt[CLOSE].shift(-1).notna())
+    r = reversal_predictions(alt, folds[:2])
+    assert ((r["p_hat"] > 0.5) == r["y_true"]).all()
+
+    # 3c) lrfs: luôn giữ cột đầu; bắt được cột có tín hiệu; bỏ cột nhiễu; tune được C qua walk-forward
+    rng = np.random.default_rng(1)
+    Xs = rng.normal(size=(700, 6))
+    ys = (0.8 * Xs[:, 3] + rng.normal(0, 1, 700) > 0).astype(int)
+    fs = ForwardSelectLR().fit(Xs, ys)
+    assert fs.support_[0] == 0 and 3 in fs.support_ and len(fs.support_) <= 3
+    assert fs.predict_proba(Xs).shape == (700, 2)
+    est, grid = load_model("lrfs")
+    assert isinstance(est, ForwardSelectLR) and set(grid) == {"C"}
+    res_fs = run_walkforward(m, ["cm_AdrActCnt", "cm_TxCnt", "cm_HashRate"], est, folds[:2], param_grid={"C": [0.1, 1]})
+    assert res_fs["p_hat"].between(0, 1).all() and res_fs["fold"].nunique() == 2
 
     # 4) CalibratedSVC: tương thích sklearn; xác suất hợp lệ và xếp hạng đúng hướng khi có tín hiệu
     rng = np.random.default_rng(0)

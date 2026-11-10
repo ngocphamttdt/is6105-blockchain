@@ -6,11 +6,14 @@ run_all.py  –  Task 2.8 (Ngọc): chạy thí nghiệm bằng một lệnh. M�
   python ngoc_pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b3    # E1: đủ 82 fold x 2 cấu hình
   python ngoc_pipeline/src/run_all.py --stage e1 --models b3 --every 10         # chạy thử 1/10 số fold
   python ngoc_pipeline/src/run_all.py --stage regime                            # ghép lại regime vào mọi predictions
+  python ngoc_pipeline/src/run_all.py --stage tables                            # tính lại các bảng từ predictions
 
 Output (ngoc_pipeline/results/):
   predictions/{model}_{config}.csv   config = ohlcv | ohlcv_onchain; cột date, fold, y_true, p_hat, regime
   predictions/b5_seeds/              B5 LSTM từng seed; b5_{config}.csv là p̂ trung bình các seed
   tables/e1_delta_draft.csv          Δ = ohlcv_onchain − ohlcv cho mọi mô hình đã có predictions (chưa kiểm định)
+  tables/e1_by_year.csv              DA, log-loss của từng mô hình × cấu hình × năm test
+  tables/e1_vs_reversal.csv          mỗi mô hình so với luật đảo chiều b0rev: ΔDA gộp + McNemar, ΔDA từng năm
 Chạy thử (--every > 1) ghi vào thư mục con every{k}/, không đè kết quả chính.
 Phương án Flows (A/B) đọc từ flows_set trong configs/features_onchain.yaml.
 Cột regime lấy từ ngan_lstm_hmm_analysis/regime_map.csv (HMM của Ngân, task 2.13), ghép theo date + fold.
@@ -27,6 +30,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import binomtest
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 
 import data as data_mod
@@ -44,6 +48,7 @@ METRICS = ("da", "log_loss", "brier", "auc")
 NGAN_DIR = Path(__file__).resolve().parents[2] / "ngan_lstm_hmm_analysis"
 REGIME_MAP = NGAN_DIR / "regime_map.csv"
 LSTM = "b5"
+REVERSAL = "b0rev"
 
 
 def load_regime_map(path=REGIME_MAP) -> pd.DataFrame | None:
@@ -120,10 +125,18 @@ def load_predictions(pred_dir) -> dict:
     return {k: read_csv_dated(f) for k, f in files.items() if k[1] in CONFIGS}
 
 
-def metrics(p) -> dict:
+def metrics(p, name=None) -> dict:
+    """DA, log-loss, Brier, AUC. Ô không có nghĩa thì để NaN thay vì in một con số:
+    luật (RULES) cho p̂ chỉ 0/1, log-loss và Brier khi đó chỉ đếm ngày sai (log-loss ~ 16,8); b0maj cho p̂ không
+    đổi trong mỗi fold, AUC khi đó chỉ xếp hạng tỷ lệ tăng train giữa các fold, không phải giữa các ngày."""
     y, ph = p["y_true"].to_numpy(), p["p_hat"].to_numpy()
-    return {"da": ((ph > 0.5).astype(int) == y).mean(), "log_loss": log_loss(y, ph, labels=[0, 1]),
-            "brier": brier_score_loss(y, ph), "auc": roc_auc_score(y, ph)}
+    out = {"da": ((ph > 0.5).astype(int) == y).mean(), "log_loss": log_loss(y, ph, labels=[0, 1]),
+           "brier": brier_score_loss(y, ph), "auc": roc_auc_score(y, ph)}
+    if name in RULES:
+        out["log_loss"] = out["brier"] = np.nan
+    if name == "b0maj":
+        out["auc"] = np.nan
+    return out
 
 
 def delta_table(preds) -> pd.DataFrame:
@@ -134,10 +147,65 @@ def delta_table(preds) -> pd.DataFrame:
         base, full = preds[(name, "ohlcv")], preds[(name, "ohlcv_onchain")]
         if not np.array_equal(base[DATE].to_numpy("datetime64[ns]"), full[DATE].to_numpy("datetime64[ns]")):
             raise ValueError(f"{name}: hai cấu hình không cùng ngày test, không so cặp được.")
-        mb, mf = metrics(base), metrics(full)
+        mb, mf = metrics(base, name), metrics(full, name)
         rows += [{"model": name, "metric": k, "ohlcv": mb[k], "ohlcv_onchain": mf[k],
                   "delta": mf[k] - mb[k], "n_days": len(base)} for k in METRICS]
     return pd.DataFrame(rows)
+
+
+def _hits(p) -> np.ndarray:
+    return ((p["p_hat"].to_numpy() > 0.5).astype(int) == p["y_true"].to_numpy()).astype(float)
+
+
+def by_year_table(preds) -> pd.DataFrame:
+    """DA và log-loss theo năm test. Luật (p̂ chỉ 0/1) không có log-loss."""
+    rows = []
+    for (name, config), p in sorted(preds.items()):
+        years = p[DATE].dt.year
+        for yr in sorted(years.unique()):
+            q = p[years == yr]
+            ll = np.nan if name in RULES else log_loss(q["y_true"], q["p_hat"], labels=[0, 1])
+            rows.append({"model": name, "config": config, "year": int(yr), "n_days": len(q),
+                         "da": _hits(q).mean(), "log_loss": ll})
+    return pd.DataFrame(rows)
+
+
+def vs_reversal_table(preds, rule=REVERSAL) -> pd.DataFrame:
+    """Mỗi mô hình (không phải luật) so với luật đảo chiều cùng ngày test: ΔDA = DA(mô hình) − DA(luật),
+    McNemar chính xác trên các ngày hai bên bất đồng, và ΔDA từng năm. Dùng để kiểm đề xuất 4 của baseline_check:
+    chỉ so On-chain khi baseline OHLCV thắng luật này ổn định."""
+    ref = next((p for (m, _), p in preds.items() if m == rule), None)
+    if ref is None:
+        return pd.DataFrame()
+    rows = []
+    for (name, config), p in sorted(preds.items()):
+        if name in RULES or name.startswith("b0"):
+            continue
+        if not np.array_equal(p[DATE].to_numpy("datetime64[ns]"), ref[DATE].to_numpy("datetime64[ns]")):
+            raise ValueError(f"{name}_{config}: không cùng ngày test với {rule}.")
+        a, b = _hits(ref), _hits(p)
+        only_model, only_rule = int(((b == 1) & (a == 0)).sum()), int(((b == 0) & (a == 1)).sum())
+        n = only_model + only_rule
+        r = {"model": name, "config": config, "da_model": b.mean(), "da_rule": a.mean(), "d_da": b.mean() - a.mean(),
+             "only_model_right": only_model, "only_rule_right": only_rule,
+             "p_mcnemar": binomtest(only_model, n, 0.5).pvalue if n else 1.0}
+        years = p[DATE].dt.year.to_numpy()
+        d_year = {int(yr): b[years == yr].mean() - a[years == yr].mean() for yr in np.unique(years)}
+        r |= {f"d_da_{yr}": v for yr, v in d_year.items()}
+        r["n_years_model_better"] = int(sum(v > 0 for v in d_year.values()))
+        r["n_years"] = len(d_year)
+        rows.append(r)
+    return pd.DataFrame(rows)
+
+
+def write_tables(pred_dir, table_dir, log=print):
+    """Δ On-chain, theo năm, so với luật đảo chiều: tính lại từ mọi file predictions trong thư mục."""
+    preds = load_predictions(pred_dir)
+    tables = {"e1_delta_draft": delta_table(preds), "e1_by_year": by_year_table(preds),
+              "e1_vs_reversal": vs_reversal_table(preds)}
+    for name, t in tables.items():
+        log(f"Đã lưu {write_csv(t, Path(table_dir) / f'{name}.csv')}")
+    return tables
 
 
 def stage_data():
@@ -162,9 +230,16 @@ def stage_e1(model_names, every=1):
           f"{len(folds)} fold")
     sub = "" if every == 1 else f"every{every}"
     run_e1(data, sets, model_names, folds, wf_cfg, RESULTS / "predictions" / sub, regime_map=load_regime_map())
-    table = delta_table(load_predictions(RESULTS / "predictions" / sub))   # gồm cả mô hình chạy từ trước
-    print("Đã lưu", write_csv(table, RESULTS / "tables" / sub / "e1_delta_draft.csv"))
-    print(table.to_string(index=False, float_format="%.4f"))
+    stage_tables(RESULTS / "predictions" / sub, RESULTS / "tables" / sub)   # gồm cả mô hình chạy từ trước
+
+
+def stage_tables(pred_dir=RESULTS / "predictions", table_dir=RESULTS / "tables"):
+    tables = write_tables(pred_dir, table_dir)
+    print(tables["e1_delta_draft"].to_string(index=False, float_format="%.4f"))
+    vs = tables["e1_vs_reversal"]
+    if len(vs):
+        print(vs[["model", "config", "da_model", "da_rule", "d_da", "p_mcnemar", "n_years_model_better", "n_years"]]
+              .to_string(index=False, float_format="%.4f"))
 
 
 def stage_regime(pred_dir=RESULTS / "predictions"):
@@ -197,9 +272,31 @@ def _tests():
         pd.testing.assert_frame_equal(preds[("b0pers", "ohlcv")], preds[("b0pers", "ohlcv_onchain")])
         table = delta_table(back)
         np.testing.assert_allclose(table["delta"], table["ohlcv_onchain"] - table["ohlcv"])
+        # 1b) Ô không có nghĩa để trống: log-loss, Brier của luật; AUC của b0maj. lr thì đủ 4 metric
+        t = table.set_index(["model", "metric"])["ohlcv"]
+        assert np.isnan(t[("b0pers", "log_loss")]) and np.isnan(t[("b0pers", "brier")])
+        assert np.isnan(t[("b0maj", "auc")]) and not np.isnan(t[("b0maj", "log_loss")])
+        assert t.loc["lr"].notna().all()
         # 2) Bảng Δ bỏ qua file không phải cấu hình E1 (vd. ablation sau này)
         (Path(tmp) / "b4_ohlcv_plus_flows.csv").write_text("x")
         assert set(load_predictions(tmp)) == set(preds)
+        # 2b) Bảng theo năm: số ngày cộng lại đủ, DA gộp theo trọng số ngày = DA cả giai đoạn; luật không có log-loss
+        run_e1(data, sets, ["b0rev"], folds, wf_cfg, tmp, log=lambda _: None)
+        back = load_predictions(tmp)
+        yt = by_year_table(back)
+        for (name, config), p in back.items():
+            s = yt[(yt.model == name) & (yt.config == config)]
+            assert s.n_days.sum() == len(p)
+            np.testing.assert_allclose((s.da * s.n_days).sum() / s.n_days.sum(), _hits(p).mean())
+            assert s.log_loss.isna().all() == (name in RULES)
+        # 2c) So với luật đảo chiều: chỉ mô hình có học; ΔDA gộp và McNemar khớp tính tay; luật so với chính nó = 0
+        vs = vs_reversal_table(back)
+        assert set(vs.model) == {"lr"}
+        row = vs[vs.config == "ohlcv"].iloc[0]
+        a, b = _hits(back[("b0rev", "ohlcv")]), _hits(back[("lr", "ohlcv")])
+        np.testing.assert_allclose(row.d_da, b.mean() - a.mean())
+        assert row.only_model_right - row.only_rule_right == int(b.sum() - a.sum())
+        assert vs_reversal_table({k: v for k, v in back.items() if k[0] != "b0rev"}).empty
     # 3) Hai cấu hình khác ngày test thì không so cặp
     p = preds[("lr", "ohlcv")]
     data_mod._raises(lambda: delta_table({("lr", "ohlcv"): p, ("lr", "ohlcv_onchain"): p.iloc[1:]}), "không cùng")
@@ -234,7 +331,7 @@ def run_tests():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--stage", choices=["data", "e0", "e1", "regime"])
+    ap.add_argument("--stage", choices=["data", "e0", "e1", "regime", "tables"])
     ap.add_argument("--models", nargs="+", default=["lr"])
     ap.add_argument("--every", type=int, default=1, help="chỉ chạy mỗi k fold (để chạy thử)")
     ap.add_argument("--test", action="store_true", help="chỉ chạy test")
@@ -249,6 +346,8 @@ def main(argv=None):
         stage_e1(args.models, args.every)
     elif args.stage == "regime":
         stage_regime()
+    elif args.stage == "tables":
+        stage_tables()
     elif args.stage == "e0":
         print("Stage e0 chưa cài (task 2.9, 2.10).", file=sys.stderr)
         return 1

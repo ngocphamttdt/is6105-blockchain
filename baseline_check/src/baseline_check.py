@@ -63,7 +63,9 @@ def load_data() -> pd.DataFrame:
     df["ret_next"] = np.log(df["close_next"] / df["ohlcv_close"])          # chỉ để kiểm tra, KHÔNG là đặc trưng
     df["y"] = (df["close_next"] > df["ohlcv_close"]).astype(float).where(df["close_next"].notna())
     df["up_today"] = (df["logret_lag1"] > 0).astype(float).where(df["logret_lag1"].notna())
-    return df.loc["2018-01-01":"2026-08-30"]
+    # Từ 31/12/2017: fold 0 của walk-forward cần đủ 730 ngày train trước gap (31/12/2017 → 30/12/2019),
+    # như ngoc_pipeline. Bắt đầu từ 01/01/2018 thì chỉ số train của fold 0 thành −1, tức ngày cuối 2026.
+    return df.loc["2017-12-31":"2026-08-30"]
 
 
 def split(df):
@@ -187,6 +189,7 @@ def walk_forward(df, cols_sets, C_fixed=1.0):
     for start in range(0, len(test_days), 30):
         te_idx = pos[start:start + 30]
         tr_idx = np.arange(te_idx[0] - 1 - 730, te_idx[0] - 1)
+        assert tr_idx[0] >= 0, "Cửa sổ train vượt đầu dữ liệu: iloc âm sẽ lấy nhầm ngày cuối chuỗi"
         tr, te = df.iloc[tr_idx], df.iloc[te_idx]
         for name, cols in cols_sets.items():
             preds[name].loc[te.index] = lr(C_fixed).fit(tr[cols], tr["y"].astype(int)).predict_proba(te[cols])[:, 1]

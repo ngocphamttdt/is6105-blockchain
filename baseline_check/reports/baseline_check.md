@@ -9,7 +9,7 @@ Tạo bởi `baseline_check/src/baseline_check.py` trên data freeze v1.0 (sha25
 | 1 | Dữ liệu và nhãn có đúng không? | Đúng. Giá ngày khớp nến 1h; nhãn kiểm bằng ví dụ; không có ngày giá bằng nhau. Chỉ ngày 08/02/2018 lấy giá đóng cửa lúc 01:00 UTC (nằm trong train) |
 | 2 | Pipeline có nhận ra tín hiệu khi tín hiệu có thật? | Có. Rò rỉ cố ý → DA 96.6%; xáo nhãn → DA 50.4% |
 | 3 | Có quy luật đơn giản nào không? | Có: hướng giá **đảo chiều sau 1 ngày**. Luật "mai ngược hôm nay" đúng 53.25% trên walk-forward 2020–08/2026 (p = 0.001), cao hơn mọi mô hình có học trong báo cáo giữa kỳ, nhưng yếu dần và đảo ngược năm 2026 |
-| 4 | Baseline OHLCV-only có ổn định? | Chưa. Walk-forward: LR 1 đặc trưng 52.22% > LR 10 đặc trưng 50.66%. Chia cố định: validation dưới 51% với mọi C, test 52.62% (p = 0.11) |
+| 4 | Baseline OHLCV-only có ổn định? | Chưa. Walk-forward: LR 1 đặc trưng 52.22% > LR 10 đặc trưng 50.70%. Chia cố định: validation dưới 51% với mọi C, test 52.62% (p = 0.11) |
 | 5 | Dự báo trông thế nào? | p̂ gần như luôn trong 0,47–0,55; sai tự tin nhất đều sau ngày giảm mạnh; đúng 4/10 ngày biến động mạnh nhất |
 
 **Đề xuất cho nhóm trước khi so On-chain:**
@@ -34,7 +34,7 @@ Tạo bởi `baseline_check/src/baseline_check.py` trên data freeze v1.0 (sha25
 
 Đọc dòng 2020-03-11: giá đóng cửa 7.934,52 → ngày 12/03 đóng cửa 4.800,00, nên y = 0 (giảm). Đặc trưng của dòng này chỉ biết return của ngày 11/03 (+0,5%), chưa biết cú sập ngày 12/03.
 
-**Giá ngày so với nến 1h.** Gộp lại 78.761 nến 1h theo ngày UTC rồi so với `master_daily.csv`: lệch tối đa open 0e+00, high 0e+00, low 0e+00, close 0e+00 USD (chỉ là sai số làm tròn).
+**Giá ngày so với nến 1h.** Gộp lại 78.761 nến 1h theo ngày UTC rồi so với `master_daily.csv`: lệch tối đa open 1e-11, high 1e-11, low 1e-11, close 1e-11 USD (chỉ là sai số làm tròn).
 
 **Ngày giá đóng cửa không lấy từ nến 23:00 UTC:** ['2018-02-08']. Ngày này chỉ có 1 nến (00:00) vì Binance bảo trì, nên close của 08/02/2018 thực ra là giá lúc 01:00 UTC. Nhãn của 07/02 và 08/02/2018 vì vậy không đúng nghĩa "cuối ngày"; hai ngày này chỉ nằm trong train.
 
@@ -120,7 +120,7 @@ Trên train + validation: tỷ lệ ngày tăng 51.0%, persistence đúng 45.2% 
 
 |                                         |   n |   DA (%) | CI 95% DA    |   p (DA = 50%) |   bal_acc |    MCC |   AUC |   log_loss |   brier |   pct_pred_up |
 |:----------------------------------------|----:|---------:|:-------------|---------------:|----------:|-------:|------:|-----------:|--------:|--------------:|
-| B0 Majority (p̂ = tỷ lệ tăng của train) | 973 |    50.67 | [47.5; 53.9] |          0.7   |     0.5   |  0     | 0.5   |     0.6931 |   0.25  |         1     |
+| B0 Majority (p̂ = tỷ lệ tăng của train)  | 973 |    50.67 | [47.5; 53.9] |          0.7   |     0.5   |  0     | 0.5   |     0.6931 |   0.25  |         1     |
 | B0 Luôn đoán tăng                       | 973 |    50.67 | [47.5; 53.9] |          0.7   |     0.5   |  0     | 0.5   |     2.2769 |   0.484 |         1     |
 | B0 Persistence (mai cùng chiều hôm nay) | 973 |    49.02 | [45.8; 52.2] |          0.564 |     0.49  | -0.02  | 0.49  |     2.3525 |   0.5   |         0.507 |
 | B0 Đảo chiều (mai ngược chiều hôm nay)  | 973 |    50.98 | [47.8; 54.2] |          0.564 |     0.51  |  0.02  | 0.51  |     2.2627 |   0.481 |         0.493 |
@@ -263,8 +263,8 @@ Cùng lịch với `ngoc_pipeline` (train 730, gap 1, test 30, bước 30). LR d
 | Persistence                         | 2434 |    46.51 | [44.5; 48.5] | <0,001         |     0.465 | -0.07  | 0.465 |     2.4681 |   0.524 |         0.509 |
 | Đảo chiều                           | 2434 |    53.25 | [51.2; 55.2] | 0.001          |     0.533 |  0.065 | 0.533 |     2.1585 |   0.458 |         0.494 |
 | LR 1 đặc trưng (logret_lag1), C = 1 | 2434 |    52.22 | [50.2; 54.2] | 0.030          |     0.521 |  0.042 | 0.53  |     0.6921 |   0.249 |         0.581 |
-| LR 10 đặc trưng OHLCV, C = 1        | 2434 |    50.66 | [48.7; 52.7] | 0.530          |     0.506 |  0.012 | 0.511 |     0.6991 |   0.253 |         0.526 |
+| LR 10 đặc trưng OHLCV, C = 1        | 2434 |    50.7  | [48.7; 52.7] | 0.504          |     0.507 |  0.013 | 0.511 |     0.6991 |   0.253 |         0.525 |
 
-So với báo cáo giữa kỳ: Majority 50.08% và Persistence 46.51% khớp đúng Bảng 8.1 (hai code độc lập). Luật đảo chiều đúng 53.25% (p = 0.001), cao hơn mọi mô hình có học trong Bảng 8.1 (49,0–51,9%). LR chỉ với 1 đặc trưng (52.22%) tốt hơn LR với 10 đặc trưng (50.66%): thêm đặc trưng đang thêm nhiễu.
+So với báo cáo giữa kỳ: Majority 50.08% và Persistence 46.51% khớp đúng Bảng 8.1 (hai code độc lập). Luật đảo chiều đúng 53.25% (p = 0.001), cao hơn mọi mô hình có học trong Bảng 8.1 (49,0–51,9%). LR chỉ với 1 đặc trưng (52.22%) tốt hơn LR với 10 đặc trưng (50.70%): thêm đặc trưng đang thêm nhiễu.
 
 **Thận trọng với luật đảo chiều:** chiều của luật được chọn lại trên từng cửa sổ train nên không nhìn test, nhưng quy luật được phát hiện khi làm EDA trên cả giai đoạn 2018–2026. Nên coi đây là một baseline cần thêm vào, không phải một phát hiện đã kiểm định độc lập.

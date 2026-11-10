@@ -1,0 +1,7 @@
+- Kết quả baseline hiện chưa đủ chắc chắn để rút ra kết luận. -> Kiểm tra data, làm EDA và chạy một baseline cơ bản trước; xem trực tiếp một số dự báo đúng/sai và bảo đảm kết quả có ý nghĩa rồi mới mở rộng.
+- Kiểm tra lại định nghĩa, cách tính và ý nghĩa của các metrics. -> Đối chiếu bằng một vài ví dụ cụ thể, bảo đảm các bảng đang đo đúng bài toán dự báo hướng giá.
+- Ghi rõ phần tuning nào đã thực sự chạy, chọn tham số thế nào và kết quả trước/sau tuning. -> Tuning bằng train/validation, không chọn model hoặc tham số theo test; hoàn thiện từng baseline trước khi so sánh.
+- Sau khi baseline OHLCV-only đã ổn định, mới bổ sung on-chain từng bước. -> Giữ cùng model và protocol, tuning phù hợp cho từng cấu hình; làm ablation theo nhóm chỉ số để xác định phần nào có ích hoặc làm kết quả kém đi.
+- Flows có lịch sử bị sửa khi cập nhật nhãn ví sàn; dịch trễ một ngày chưa giải quyết được vấn đề này. -> Kiểm tra thời điểm dữ liệu thực sự có sẵn và chạy đối chứng bỏ Flows.
+- Nhãn regime chưa tái lập được và chỉ kéo dài trung bình 2-3 ngày. -> Hoàn thiện code, kiểm tra các giai đoạn cụ thể và ý nghĩa Bull/Bear/Sideways trước khi dùng kết quả để trả lời RQ3.
+- -> Ưu tiên kiểm tra data, baseline và pipeline theo từng bước, bảo đảm đúng trước khi mở rộng so sánh.

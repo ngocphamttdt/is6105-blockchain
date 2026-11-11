@@ -1,0 +1,19 @@
+cột,nhóm,dùng trong A,dùng trong B,ngày đầu có số,ô trống (cả file),ô trống từ 2018
+ohlcv_open,ohlcv,,,2017-08-17,594,0
+ohlcv_high,ohlcv,,,2017-08-17,594,0
+ohlcv_low,ohlcv,,,2017-08-17,594,0
+ohlcv_close,ohlcv,,,2017-08-17,594,0
+ohlcv_volume,ohlcv,,,2017-08-17,594,0
+cm_AdrActCnt,activity,có,có,2016-01-01,0,0
+cm_TxCnt,activity,có,có,2016-01-01,0,0
+bc_est_tx_vol_usd,activity,có,có,2016-01-01,8,8
+cm_SplyExNtv,flows,có,có,2016-01-01,0,0
+cm_NetflowExNtv,flows,có,,2016-01-01,0,0
+cm_HashRate,mining,có,có,2016-01-01,0,0
+cm_FeeTotNtv,mining,có,có,2016-01-01,0,0
+bc_difficulty,mining,có,có,2016-01-01,3,3
+cm_CapMVRVCur,valuation,có,có,2016-01-01,0,0
+puell_multiple,valuation,có,có,2016-12-30,364,0
+nvt_ratio_bc,valuation,có,có,2016-01-01,8,8
+cm_FlowInExNtv,flows,,có,2016-01-01,0,0
+cm_FlowOutExNtv,flows,,có,2016-01-01,0,0

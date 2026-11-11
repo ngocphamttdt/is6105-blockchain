@@ -1,0 +1,11 @@
+# B1 + chọn đặc trưng tiến dần (Vi, đề xuất 2 của baseline_check): bắt đầu từ cột đầu (logret_lag1),
+# thêm cột làm log-loss TimeSeriesSplit(5, gap 1) trong cửa sổ train giảm quá tol; C tune như lr
+class: lrfs
+params:
+  start: 1
+  cv_splits: 5
+  gap: 1
+  tol: 0.0001
+  max_iter: 1000
+param_grid:
+  C: [0.01, 0.1, 1]

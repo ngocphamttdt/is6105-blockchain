@@ -41,6 +41,8 @@ ngoc_pipeline/
     ├── predictions/b5_seeds/b5s{seed}_{config}.csv   B5 từng seed; b5_{config}.csv là p̂ trung bình
     ├── tables/e1_delta_draft.csv
     ├── tables/e1_by_regime_draft.csv                 DA, log-loss theo regime (sơ bộ, chưa có CI)
+    ├── tables/e1_by_year.csv                         DA, log-loss từng mô hình × cấu hình × năm test
+    ├── tables/e1_vs_reversal.csv                     mỗi mô hình so với luật đảo chiều b0rev (ΔDA gộp, McNemar, từng năm)
     └── figures/walkforward.png
 ```
 
@@ -67,6 +69,7 @@ python ngoc_pipeline/src/run_all.py --stage data                             # k
 python ngoc_pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b2 b3 b4 b5   # E1 đủ (~10 phút)
 python ngoc_pipeline/src/run_all.py --stage e1 --models b3 --every 10        # chạy thử 1/10 số fold -> every10/
 python ngoc_pipeline/src/run_all.py --stage regime                           # ghép lại regime khi regime_map.csv đổi
+python ngoc_pipeline/src/run_all.py --stage tables                           # tính lại mọi bảng từ predictions đã có
 python ngoc_pipeline/src/walkforward.py                                      # vẽ lại results/figures/walkforward.png
 ```
 
@@ -123,7 +126,9 @@ Số đặc trưng On-chain theo nhóm (phương án A, dùng cho ablation E2 qu
 |---|---|---|
 | `lr` | B1 Logistic Regression, grid C | Bản cho pipeline mỏng; Trâm sở hữu B1 |
 | `b0maj` | B0 majority class: p̂ = tỷ lệ ngày tăng trong train | Mức sàn cho log-loss và Brier |
-| `b0pers` | B0 persistence: ngày mai cùng hướng hôm nay | Mức sàn cho DA. p̂ chỉ là 0/1, nên log-loss không dùng được |
+| `b0pers` | B0 persistence: ngày mai cùng hướng hôm nay | Mức sàn cho DA. p̂ chỉ là 0/1, nên log-loss và Brier để trống trong bảng |
+| `b0rev` | B0 đảo chiều: ngày mai ngược hướng hôm nay; chiều chọn lại trên từng cửa sổ train | Đề xuất 1 của `baseline_check`. Mốc DA mạnh nhất (53,25%); mọi mô hình có học phải so với luật này (`e1_vs_reversal.csv`). p̂ chỉ là 0/1 như `b0pers` |
+| `lrfs` | B1 + chọn đặc trưng tiến dần: bắt đầu từ `logret_lag1`, thêm cột làm log-loss inner CV giảm; grid C | Đề xuất 2 của `baseline_check`. Thường giữ 1–3 đặc trưng OHLCV |
 | `b3` | B3 SVM RBF, grid C × gamma | Xác suất hiệu chỉnh sigmoid trên điểm ngoài mẫu theo thời gian (TimeSeriesSplit, gap 1); SVM cuối fit trên toàn cửa sổ train |
 | `b2` | B2 Random Forest, grid số cây × độ sâu × `min_samples_leaf` (12 tổ hợp) | Bản chạy thử; Trâm sở hữu B2 |
 | `b4` | B4 XGBoost, grid learning rate × độ sâu | Bản chạy thử; Khoa sở hữu B4. Số cây chọn bằng early stopping trên 20% cuối cửa sổ train (bỏ 1 ngày gap), rồi fit lại trên toàn cửa sổ |
@@ -144,6 +149,8 @@ Phương án A, 10 đặc trưng OHLCV của Trâm, 2.434 ngày test. DA và AUC
 |---|---|---|---|---|
 | `b0maj` | 0,5008 | 0 | 0,6938 | 0 |
 | `b0pers` | 0,4651 | 0 | không dùng | 0 |
+| `b0rev` | 0,5325 | 0 | không dùng | 0 |
+| `lrfs` | 0,5111 → 0,5156 | +0,0045 | 0,6933 → 0,6968 | +0,0036 |
 | `lr` | 0,5111 → 0,5189 | +0,0078 | 0,6953 → 0,7006 | +0,0054 |
 | `b2` (thử) | 0,5123 → 0,5140 | +0,0016 | 0,6961 → 0,6957 | −0,0005 |
 | `b3` | 0,5062 → 0,5029 | −0,0033 | 0,7009 → 0,6959 | −0,0050 |

@@ -43,8 +43,9 @@ def _clean(s):
     return s.replace([np.inf, -np.inf], np.nan)
 
 
-def log_diff(s, signed=False):
-    return _clean(_level(s, signed).diff())
+def log_diff(s, signed=False, lag=1):
+    """lag = 7 cho cột có mùa vụ theo thứ trong tuần: so với cùng thứ tuần trước (eda_pre_training mục 2b)."""
+    return _clean(_level(s, signed).diff(lag))
 
 
 def ma_ratio(s, short=7, long=30, signed=False):
@@ -59,15 +60,20 @@ def rolling_zscore(s, window=90, signed=False):
     return _clean((lv - lv.rolling(window).mean()) / sd.where(sd > 0))
 
 
-def feature_names(col, ma_short=7, ma_long=30, z_window=90, signed=False) -> list[str]:
+def feature_names(col, ma_short=7, ma_long=30, z_window=90, signed=False, lag=1) -> list[str]:
+    k = "" if lag == 1 else str(lag)
     if signed:
-        return [f"{col}_diff", f"{col}_ma{ma_short}m{ma_long}", f"{col}_z{z_window}"]
-    return [f"{col}_logdiff", f"{col}_ma{ma_short}_{ma_long}", f"{col}_z{z_window}"]
+        return [f"{col}_diff{k}", f"{col}_ma{ma_short}m{ma_long}", f"{col}_z{z_window}"]
+    return [f"{col}_logdiff{k}", f"{col}_ma{ma_short}_{ma_long}", f"{col}_z{z_window}"]
 
 
 def build_onchain_features(df, cols=None, flows_set="A", signed_cols=(), shift_days=0, ffill_limit=0,
-                           ma_short=7, ma_long=30, z_window=90, **_) -> pd.DataFrame:
-    """Đặc trưng On-chain kèm cột date. cols=None: lấy theo flows_set. **_ nhận thẳng features_onchain.yaml."""
+                           ma_short=7, ma_long=30, z_window=90, diff_lag=None, drop_features=(),
+                           **_) -> pd.DataFrame:
+    """Đặc trưng On-chain kèm cột date. cols=None: lấy theo flows_set. **_ nhận thẳng features_onchain.yaml.
+    diff_lag {cột: k}: sai phân k ngày thay cho 1 ngày. drop_features: tên đặc trưng bỏ đi sau khi dựng
+    (cả 3 đặc trưng của một cột thì cột đó không còn). Cả hai mặc định rỗng, tức đúng bản v1."""
+    diff_lag = diff_lag or {}
     if (df[DATE].diff().iloc[1:] != pd.Timedelta(days=1)).any():
         raise ValueError("Dữ liệu thiếu ngày: rolling theo số dòng sẽ sai cửa sổ.")
     cols = onchain_columns(flows_set) if cols is None else list(cols)
@@ -77,22 +83,27 @@ def build_onchain_features(df, cols=None, flows_set="A", signed_cols=(), shift_d
         raise ValueError(f"Cột có giá trị <= 0 nhưng không khai trong signed_cols: {non_pos}")
     parts = {}
     for c in cols:
-        sg = c in signed_cols
-        n_ld, n_ma, n_z = feature_names(c, ma_short, ma_long, z_window, sg)
-        parts[n_ld] = log_diff(raw[c], sg)
+        sg, lag = c in signed_cols, diff_lag.get(c, 1)
+        n_ld, n_ma, n_z = feature_names(c, ma_short, ma_long, z_window, sg, lag)
+        parts[n_ld] = log_diff(raw[c], sg, lag)
         parts[n_ma] = ma_ratio(raw[c], ma_short, ma_long, sg)
         parts[n_z] = rolling_zscore(raw[c], z_window, sg)
-    feats = pd.DataFrame(parts).shift(shift_days)
+    unknown = set(drop_features) - set(parts)
+    if unknown:
+        raise ValueError(f"drop_features có tên không tồn tại: {sorted(unknown)}")
+    feats = pd.DataFrame({k: v for k, v in parts.items() if k not in set(drop_features)}).shift(shift_days)
     feats.insert(0, DATE, df[DATE].to_numpy())
     return feats.reset_index(drop=True)
 
 
 def feature_groups(cols=None, flows_set="A", signed_cols=(), ma_short=7, ma_long=30, z_window=90,
-                   **_) -> dict[str, list[str]]:
+                   diff_lag=None, drop_features=(), **_) -> dict[str, list[str]]:
     """{nhóm: [tên đặc trưng]} cho ablation E2. Truyền cùng **cfg với build_onchain_features."""
     cols = onchain_columns(flows_set) if cols is None else list(cols)
+    diff_lag, drop = diff_lag or {}, set(drop_features)
     groups = {g: [f for c in cols if COL_GROUP[c] == g
-                  for f in feature_names(c, ma_short, ma_long, z_window, c in signed_cols)]
+                  for f in feature_names(c, ma_short, ma_long, z_window, c in signed_cols, diff_lag.get(c, 1))
+                  if f not in drop]
               for g in ONCHAIN_GROUPS}
     return {g: fs for g, fs in groups.items() if fs}
 
@@ -180,6 +191,23 @@ def _tests():
         groups = feature_groups(**c)
         assert [x for fs in groups.values() for x in fs] == list(build_onchain_features(m, **c).columns[1:])
         assert len(groups["Flows"]) == n_flows
+
+    # 7b) v2: sai phân 7 ngày khớp tính tay, tên có hậu tố 7; drop_features biến mất khỏi builder và nhóm;
+    #     tên drop sai thì báo lỗi; nhóm vẫn khớp đúng cột của builder
+    v2 = load_config("features_onchain_v2.yaml")
+    f2 = build_onchain_features(m, **{**v2, "shift_days": 0, "ffill_limit": 0})
+    s = np.log(m["cm_AdrActCnt"])
+    np.testing.assert_allclose(f2["cm_AdrActCnt_logdiff7"].iloc[7:], (s - s.shift(7)).iloc[7:])
+    assert "cm_AdrActCnt_logdiff" not in f2 and "cm_TxCnt_logdiff" in f2
+    assert not set(v2["drop_features"]) & set(f2.columns)
+    g2 = feature_groups(**v2)
+    assert [x for fs in g2.values() for x in fs] == list(build_onchain_features(m, **v2).columns[1:])
+    assert g2["Flows"] == ["cm_NetflowExNtv_diff", "cm_NetflowExNtv_ma7m30", "cm_NetflowExNtv_z90"]
+    _raises(lambda: build_onchain_features(m, **{**v2, "drop_features": ["khong_co"]}), "không tồn tại")
+    #     v2 cũng không nhìn tương lai
+    m2 = m.copy()
+    m2.loc[m2.index > 2000, onchain_columns("A")] *= 5
+    pd.testing.assert_frame_equal(build_onchain_features(m2, **v2).iloc[:2001], build_onchain_features(m, **v2).iloc[:2001])
 
     # 8) build_dataset: bộ OHLCV-only là đúng 10 đặc trưng của Trâm, nằm trong bộ đầy đủ, không chứa cột On-chain
     data, sets = build_dataset(m, cfg, h1)

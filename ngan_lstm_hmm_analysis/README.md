@@ -254,6 +254,19 @@ phiên bản.
 
 ## 9. Trạng thái và giới hạn hiện tại
 
+**Cập nhật theo góp ý 6 (Vi): `run_regime.py`.**
+
+-   `regime_map.csv` giờ **tái lập được**. `run_regime.py` dựng đầu vào từ data freeze (`log_return` = log return giá đóng cửa ngày; `realized_volatility` = căn tổng bình phương log return 1h trong ngày UTC), gọi `regime_hmm.run_hmm_walk_forward` không sửa gì, và kiểm tra khớp 100% nhãn và fold với `regime_map.csv`.
+-   Thêm regime theo xu hướng (`regime_trend_map.csv`, cùng định dạng): Bull nếu close > MA200 và return 90 ngày > +10%; Bear nếu close < MA200 và return 90 ngày < −10%; còn lại là Sideways; làm mượt bằng nhãn nhiều nhất trong 21 ngày. Chỉ dùng quá khứ.
+-   `reports/regime_check.md` so hai cách gán: độ dài đợt, return trước/sau, và 9 giai đoạn đã biết của BTC. HMM đúng nhãn kỳ vọng 43%, regime theo xu hướng đúng 83%. HMM tách theo mức biến động, không theo xu hướng.
+
+```
+python ngan_lstm_hmm_analysis/run_regime.py --test
+python ngan_lstm_hmm_analysis/run_regime.py      # khoảng 1 phút
+```
+
+Các ghi chú gốc:
+
 -   `model_lstm.py` là module mô hình; cần được gọi bằng dữ liệu, danh
     sách fold và danh sách feature đã chuẩn bị đúng.
 -   `regime_hmm.py` có thể chạy độc lập với pipeline dự báo nếu cung cấp

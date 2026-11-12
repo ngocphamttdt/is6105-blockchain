@@ -32,7 +32,8 @@ from sklearn.preprocessing import StandardScaler
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tram_features_backtest/src"))
-from features_ohlcv import FEATURES, MASTER, build_ohlcv_features, verify_freeze   # noqa: E402
+from features_ohlcv import FEATURES_10 as FEATURES, MASTER, build_ohlcv_features, verify_freeze  # noqa: E402
+# Báo cáo này làm với 10 đặc trưng ban đầu (trước up_today, 12/11/2026); giữ nguyên để tái tạo đúng.
 
 OUT = Path(__file__).resolve().parents[1] / "reports"
 FIG = OUT / "figures"

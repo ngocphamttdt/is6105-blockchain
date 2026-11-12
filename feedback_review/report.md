@@ -8,8 +8,8 @@ Branch `vi/feedback-3-6` (tách từ `vi/baseline-reversal-metrics-check`). Mọ
 |---|---|---|---|---|
 | 1 | Kiểm tra data, EDA, baseline, xem dự báo đúng/sai | ✅ | ✅ | `baseline_check/`, `eda_pre_training/` (branch `feat/test-eda`) |
 | 2 | Metric đúng định nghĩa, đối chiếu ví dụ | ✅ | ✅ | `metrics_check/` |
-| 3 | Ghi rõ tuning, trước/sau tuning | ⚠️ | ✅ | `ngoc_pipeline/results/tuning/` |
-| 4 | Baseline ổn định rồi mới thêm On-chain; ablation theo nhóm | ❌ | ✅ Có cổng kiểm tra baseline (tiêu chí chốt trước), stepwise On-chain trên validation, ablation. **Kết quả: không mô hình nào qua cổng; stepwise bỏ qua On-chain ở 9–13/14 lần tune** | `ngoc_pipeline/src/gate.py`, `results/gate/`, `results/e2/` |
+| 3 | Ghi rõ tuning, trước/sau tuning | ⚠️ | ✅ Tuning B1–B4 (3a) + tuning đầy đủ B1: 51,48% → 52,59%, qua cổng baseline (3b) | `ngoc_pipeline/results/tuning/`, `results/lr_tuning/` |
+| 4 | Baseline ổn định rồi mới thêm On-chain; ablation theo nhóm | ❌ | ✅ Có cổng kiểm tra baseline (tiêu chí chốt trước), stepwise On-chain trên validation, ablation. **Kết quả: B1–B4 với 10 feature OHLCV không qua cổng; chỉ B1 sau tuning đầy đủ (mục 3b) qua cổng. Stepwise bỏ qua On-chain ở 9–13/14 lần tune** | `ngoc_pipeline/src/gate.py`, `results/gate/`, `results/e2/` |
 | 5 | Thời điểm Flows có sẵn; đối chứng bỏ Flows | ⚠️ | ✅ | `crawl_data/vi_ohlcv_flows/reports/flows_vintage.md`, cấu hình `no_flows` |
 | 6 | Regime tái lập được, đúng nghĩa, rồi mới trả lời RQ3 | ⚠️ | ✅ | `ngan_lstm_hmm_analysis/run_regime.py`, `reports/regime_check.md`, `results/e3/` |
 
@@ -25,7 +25,13 @@ Mọi mô hình, kể cả khi đã thêm On-chain, vẫn **thua luật đảo c
 
 ## Góp ý 3: tuning
 
-> Ghi rõ phần tuning nào đã thực sự chạy, chọn tham số thế nào và kết quả trước/sau tuning. Tuning bằng train/validation, không chọn model hoặc tham số theo test.
+> Ghi rõ phần tuning nào đã thực sự chạy, chọn tham số thế nào và kết quả trước/sau tuning. Tuning bằng train/validation, không chọn model hoặc tham số theo test; hoàn thiện từng baseline trước khi so sánh.
+
+Phần này có hai bước:
+- **3a** ghi lại tuning đã chạy trong pipeline E1 cho B1–B4.
+- **3b** tune lại B1 đầy đủ, vì 3a cho thấy lưới của B1 chạm biên. Đây là phần "hoàn thiện từng baseline".
+
+### 3a. Tuning trong pipeline E1 (B1–B4)
 
 **Cách tune đã chạy (E1):**
 - GridSearchCV với TimeSeriesSplit(5 phần, gap 1 ngày) **chỉ bên trong cửa sổ train 730 ngày** của fold, tiêu chí log-loss.
@@ -66,8 +72,146 @@ Mọi mô hình, kể cả khi đã thêm On-chain, vẫn **thua luật đảo c
 
 **Nhận xét:**
 1. **Tuning giúp xác suất (log-loss)** rõ ở B1 và B2, nhưng **không giúp accuracy**: mọi Δ DA trước/sau đều nằm trong nhiễu, trừ B4 + On-chain, nơi tuning làm DA *kém đi*.
-2. **Tham số chạm biên lưới:** B1 luôn chọn C nhỏ nhất, B2 luôn chọn lá lớn nhất. Mô hình "muốn" đơn giản hơn nữa, đúng với việc tín hiệu rất yếu. Nếu muốn hoàn thiện baseline, nên mở rộng lưới (C ∈ {0,0001; 0,001}, min_samples_leaf ∈ {100, 200}) và chốt lưới **trước** khi chạy lại.
+2. **Tham số chạm biên lưới:** B1 luôn chọn C nhỏ nhất, B2 luôn chọn lá lớn nhất. Mô hình "muốn" đơn giản hơn nữa, đúng với việc tín hiệu rất yếu. Lưới mở rộng cho B1–B4 nằm ở mục 4a; tuning đầy đủ cho B1 nằm ở mục 3b.
 3. **B3 và B4 chọn tham số không ổn định** giữa các lần tune: inner CV gần như không phân biệt được các tổ hợp.
+
+### 3b. Tuning đầy đủ cho B1 (Logistic Regression)
+
+Code: `ngoc_pipeline/src/lr_tuning.py`. Kết quả: `ngoc_pipeline/results/lr_tuning/`.
+
+#### Mục tiêu
+
+Mục 3a và 4a cho thấy B1 với 10 feature OHLCV:
+- chọn C nhỏ nhất của lưới ở mọi lần tune;
+- trên validation, chỉ hơn mốc "đoán theo tỷ lệ ngày tăng" ở 9/14 lần tune;
+- đoán "tăng" ở 55–59% số ngày, nên F1 lớp giảm thấp.
+
+Mục tiêu của 3b là tune lại B1 trên một không gian rộng hơn, **chỉ dùng train/validation**, để có một baseline OHLCV hoàn chỉnh trước khi thêm On-chain.
+
+#### Thiết lập
+
+**Quy trình**, giống mọi mô hình khác của pipeline:
+1. Walk-forward 82 fold: train 730 ngày, gap 1 ngày, test 30 ngày, giai đoạn test 01/2020 → 08/2026 (2.434 ngày).
+2. Tune lại mỗi 6 fold, tức 14 lần tune: fold 0, 6, …, 78. Tham số chọn ở fold k được dùng cho fold k đến k+5.
+3. Trong mỗi lần tune, cửa sổ train 730 ngày được chia bằng `TimeSeriesSplit(5, gap = 1)`. Validation luôn nằm sau train.
+4. Mỗi tổ hợp được fit trên phần train và chấm điểm trên phần validation của cả 5 split, rồi lấy trung bình.
+5. Tổ hợp tốt nhất được fit lại trên toàn bộ 730 ngày train rồi mới dự báo test.
+
+**Pipeline**, được fit lại trong từng split:
+
+```
+Winsorize 1%/99% → StandardScaler → LogisticRegression(solver = "saga", max_iter = 5000, random_state = 0)
+```
+
+**Không gian tìm**, chốt trước khi chạy, 5 × 10 × 3 × 2 = **300 tổ hợp mỗi lần tune**:
+
+| Tham số | Giá trị | Lý do đưa vào |
+|---|---|---|
+| Tập feature | `sign` (1 nếu hôm nay tăng); `lag1` (return hôm nay); `lag1` + `sign`; 10 OHLCV; 10 OHLCV + `sign` | `baseline_check`: LR 1 feature tốt hơn LR 10 feature; luật đảo chiều dùng dấu của return |
+| C | 0,0001; 0,0003; 0,001; 0,003; 0,01; 0,03; 0,1; 0,3; 1; 10 | Lưới cũ {0,01 … 10} chạm biên dưới 14/14 lần |
+| Regularization (`l1_ratio`) | 0 (L2), 0,5 (elastic-net), 1 (L1) | L1 có thể đưa hệ số của feature vô ích về 0 |
+| `class_weight` | không có, balanced | Sửa việc nghiêng về đoán "tăng" |
+
+**Tiêu chí chọn**, chốt trước khi chạy:
+- **Chính:** log-loss trung bình trên validation thấp nhất, cùng tiêu chí với mọi mô hình của pipeline.
+- **Độ nhạy:** accuracy trung bình trên validation cao nhất.
+- Nếu bằng điểm (làm tròn 10 chữ số), chọn tập feature ít hơn, rồi C nhỏ hơn.
+
+**Ví dụ một lần tune** (fold 0, train 31/12/2017 → 30/12/2019, theo log-loss): chọn `lag1`, C = 10, L2, balanced. Điểm của cả 300 tổ hợp được lưu ở `log/grid/fold00.csv`.
+
+#### Tham số được chọn
+
+Từ `tables/lr_tuning_choices.csv`; chi tiết từng lần ở `log/chosen.csv`:
+
+| | Chọn theo log-loss | Chọn theo accuracy |
+|---|---|---|
+| Tập feature | `lag1` 6, `sign` 6, `lag1 + sign` 1, 10 OHLCV 1 | `lag1` 4, `lag1 + sign` 4, 10 OHLCV 3, `sign` 2, 10 OHLCV + `sign` 1 |
+| C | 10 (5 lần), 0,01–0,03 (6 lần), còn lại rải rác | 0,0001–0,03 (12 lần), 0,1–0,3 (2 lần) |
+| C chạm biên lưới | 6/14 | 2/14 |
+| Regularization | L2 8, L1 4, elastic-net 2 | L2 9, L1 3, elastic-net 2 |
+| `class_weight` | balanced 11, không có 3 | balanced 14 |
+| Log-loss validation (mốc "đoán theo tỷ lệ" = 0,6950) | 0,6891 | 0,6919 |
+| Số lần tốt hơn mốc trên validation | **14/14** | **13/14** |
+
+**Đọc kết quả:**
+- **Tập feature nhỏ được chọn áp đảo.** Theo log-loss, 13/14 lần chọn tập chỉ có return hôm nay hoặc dấu của nó. 10 feature OHLCV còn lại chủ yếu là nhiễu với LR.
+- **`balanced` gần như luôn được chọn.** Điều này sửa việc nghiêng về đoán "tăng" mà F1 đã chỉ ra.
+- **C = 10 không phải dấu hiệu bất ổn.** Với 1 feature, C lớn chỉ có nghĩa là gần như không cần regularize.
+- **Tập feature đổi qua lại giữa `lag1` và `sign`**, nhưng hai tập này mang cùng một thông tin (return hôm nay), nên dự báo gần như không đổi.
+
+#### Kết quả trước và sau tuning trên test
+
+![Tuning B1](../ngoc_pipeline/results/figures/fig_lr_tuning.png)
+
+Từ `tables/lr_tuning_summary.csv`. "B1 trước tuning" là B1 của E2: 10 OHLCV, winsorize, lưới C {0,01 … 10}, L2. Cả bốn bản dùng cùng 2.434 ngày test.
+
+| B1 | Accuracy | F1 lớp tăng | F1 lớp giảm | F1 macro | MCC | Log-loss | AUC | % đoán tăng |
+|---|---|---|---|---|---|---|---|---|
+| Trước tuning | 51,48 | 0,542 | 0,484 | 0,513 | 0,028 | 0,6953 | 0,513 | 55% |
+| Lưới C mở rộng (mục 4a) | 50,16 | 0,547 | 0,446 | 0,497 | 0,000 | 0,6953 | 0,499 | 59% |
+| **Sau tuning, theo log-loss** | **52,59** | 0,523 | 0,529 | **0,526** | 0,052 | **0,6921** | **0,531** | 48% |
+| Sau tuning, theo accuracy | 53,04 | 0,526 | 0,534 | 0,530 | 0,062 | 0,6930 | 0,532 | 48% |
+| *Luật đảo chiều b0rev (mốc)* | *53,25* | *0,534* | *0,531* | *0,533* | *0,065* | | | *49%* |
+
+- Mọi metric đều tốt lên cùng lúc: accuracy, F1, MCC, log-loss, AUC.
+- **Log-loss trên test thấp hơn ln 2 = 0,6931** lần đầu tiên. Các bản trước đều từ 0,695 trở lên, tức xác suất dự báo còn kém hơn tung đồng xu.
+- Hai lớp được dự báo cân bằng: F1 lớp tăng và lớp giảm đều khoảng 0,52–0,53.
+- **Theo năm** (hình phải): B1 sau tuning và luật đảo chiều đi gần như cùng một đường, cùng yếu dần từ khoảng 59% (2020) xuống khoảng 47% (2026).
+
+#### Kiểm định ý nghĩa
+
+Khoảng tin cậy 95% bằng block bootstrap (khối 15 ngày, 2.000 lần); McNemar cho chênh lệch accuracy; Diebold–Mariano cho log-loss.
+
+| So với | B1 trước tuning | **B1 sau tuning (log-loss)** | B1 sau tuning (accuracy) |
+|---|---|---|---|
+| **50% (đoán ngẫu nhiên):** accuracy [CI] | 51,48 [49,6; 53,4] | **52,59 [50,5; 54,7]** | **53,04 [51,1; 55,1]** |
+| p (accuracy > 50%) | 0,07 | **0,005** | **< 0,001** |
+| **b0maj (đoán theo lớp nhiều hơn):** Δ accuracy [CI] | +1,4 [−0,5; +3,3] | +2,5 [−0,1; +5,0] | +3,0 [+0,4; +5,4] |
+| p McNemar | 0,19 | 0,09 | 0,03 (≈ 0,06 sau Holm cho 2 bản) |
+| **b0maj:** Δ log-loss, p DM | +0,0015, p 0,33 | −0,0017, p 0,38 | −0,0008, p 0,53 |
+| **B1 trước tuning:** Δ accuracy [CI] | | +1,1 [−1,1; +3,5] | +1,6 [−0,5; +3,6] |
+| **Luật đảo chiều:** Δ accuracy [CI] | −1,8 [−3,9; +0,3] | −0,7 [−1,9; +0,6] | −0,2 [−1,3; +0,8] |
+
+**Đọc kết quả:**
+1. **So với đoán ngẫu nhiên:** B1 sau tuning cao hơn 50% có ý nghĩa thống kê (p = 0,005). B1 trước tuning thì không (p = 0,07).
+2. **So với baseline đoán theo lớp nhiều hơn:**
+   - Bản chọn theo log-loss, tức tiêu chí chính, **chưa** hơn có ý nghĩa (p = 0,09).
+   - Bản chọn theo accuracy hơn ở p = 0,03, nhưng sau khi hiệu chỉnh cho 2 bản đã thử thì p ≈ 0,06.
+   - Xác suất dự báo (log-loss) không tốt hơn b0maj có ý nghĩa.
+3. **So với B1 trước tuning:** cải thiện +1,1 đến +1,6 điểm, nhưng khoảng tin cậy còn chứa 0.
+4. **So với luật đảo chiều:** không khác biệt. B1 sau tuning về bản chất là luật đảo chiều viết dưới dạng LR: nó dùng return hôm nay với hệ số âm, cộng với cân bằng lớp.
+
+#### Đối chiếu với cổng "baseline ổn định" (mục 4a)
+
+| Tiêu chí | B1 trước tuning | B1 sau tuning (log-loss) |
+|---|---|---|
+| G1: tốt hơn mốc trên validation ở ≥ 10/14 lần | 9/14 ✗ | **14/14 ✓** |
+| G2: C chạm biên ≤ 7/14 lần | 14/14 ✗ (lưới cũ) | **6/14 ✓** |
+
+B1 sau tuning là **baseline OHLCV đầu tiên qua cổng**. Có hai lưu ý:
+- L1 hay L2 được chọn khác nhau giữa các lần tune. Đây là lựa chọn rời rạc nên không tính là "chạm biên".
+- Tập feature đổi qua lại giữa `lag1` và `sign`, nhưng hai tập cùng thông tin.
+
+#### Giới hạn
+
+- **Data snooping nhẹ.** Hai tập feature `lag1` và `sign` được đưa vào danh sách ứng viên dựa trên `baseline_check`, mà `baseline_check` có xem kết quả walk-forward. Việc chọn trong từng fold chỉ dựa trên validation, nhưng danh sách ứng viên không hoàn toàn độc lập với giai đoạn test.
+- **Hai tiêu chí chọn.** Chỉ bản log-loss là kết quả chính. Bản accuracy chỉ để kiểm tra độ nhạy và không được báo cáo thay cho bản chính.
+- **Tín hiệu yếu dần.** Giống luật đảo chiều, accuracy giảm theo thời gian (2026 khoảng 47%). Nếu xu hướng này tiếp tục, baseline sẽ không còn giữ được.
+
+#### Kết luận
+
+> Sau khi tune trên validation (300 tổ hợp × 14 lần tune; tập feature, C, kiểu regularization, cân bằng lớp), B1 Logistic Regression đạt accuracy 52,59%, F1 macro 0,526 và log-loss 0,6921 trên 2.434 ngày test walk-forward. Kết quả này cao hơn 50% có ý nghĩa thống kê (p = 0,005) và qua được cổng "baseline ổn định". Tuy nhiên, B1 chưa vượt có ý nghĩa baseline đoán theo lớp nhiều hơn (+2,5 điểm, p = 0,09), và tương đương luật đảo chiều 1 ngày (−0,7 điểm, không có ý nghĩa). Tuning chọn gần như chỉ dùng return hôm nay cùng cân bằng lớp; tín hiệu B1 học được là hiệu ứng đảo chiều ngắn hạn. B1 sau tuning được dùng làm baseline OHLCV để đo giá trị bổ sung của On-chain (RQ1).
+
+**File kết quả** (trong `ngoc_pipeline/results/lr_tuning/`):
+
+| File | Nội dung |
+|---|---|
+| `log/chosen.csv` | Tham số được chọn ở 14 lần tune, theo từng tiêu chí |
+| `log/grid/foldXX.csv` | Điểm validation của cả 300 tổ hợp ở mỗi lần tune |
+| `predictions/lr_tuned_{logloss,acc}.csv` | Dự báo trên test |
+| `tables/lr_tuning_summary.csv` | Metric và Δ trên test |
+| `tables/lr_tuning_choices.csv` | Tổng hợp tham số được chọn |
+| `tables/lr_tuning_by_year.csv` | Accuracy theo năm |
 
 ---
 
@@ -363,6 +507,8 @@ python ngoc_pipeline/src/gate.py --stage tables
 python ngoc_pipeline/src/rules30.py                             # luật 30 ngày + bảng accuracy/F1 cả chuỗi (cần gate xong)
 python ngoc_pipeline/src/hybrid.py --stage a                    # luật làm feature (~10 phút)
 python ngoc_pipeline/src/hybrid.py --stage tables               # luật + mô hình ghi đè, luật On-chain cực trị
+python ngoc_pipeline/src/lr_tuning.py --stage run               # tuning đầy đủ B1 (~15 phút)
+python ngoc_pipeline/src/lr_tuning.py --stage tables
 python ngan_lstm_hmm_analysis/run_regime.py                     # góp ý 6: tái lập HMM, regime xu hướng
 python ngoc_pipeline/src/experiments.py --stage e3
 cd crawl_data/vi_ohlcv_flows && python src/flows_vintage.py      # góp ý 5: gọi API CoinMetrics

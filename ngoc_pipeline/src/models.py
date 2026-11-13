@@ -21,6 +21,7 @@ Mô hình đã có:
           (baseline_check, đề xuất 2)
   b3      B3 SVM RBF, xác suất hiệu chỉnh sigmoid trên điểm ngoài mẫu theo thời gian
   b2      B2 Random Forest (bản chạy thử; Trâm sở hữu B2)
+  b2t     B2 Random Forest đã tuning (configs/models/b2t.yaml; chi tiết b2_tuning/README.md)
   b4      B4 XGBoost, early stopping trên 20% cuối cửa sổ train (bản chạy thử; Khoa sở hữu B4)
 B0 không dùng đặc trưng, nên hai cấu hình OHLCV và OHLCV + On-chain cho cùng dự báo (Δ = 0).
 
@@ -277,6 +278,12 @@ def _tests():
     est, grid = load_model("b2")
     assert isinstance(est, RandomForestClassifier) and set(grid) == {"n_estimators", "max_depth", "min_samples_leaf"}
     res = run_walkforward(m, ["cm_AdrActCnt", "cm_TxCnt"], est, folds[:1], param_grid={"n_estimators": [50]})
+    assert res["p_hat"].between(0, 1).all()
+    #    b2t (B2 đã tuning): cùng lớp RandomForestClassifier, grid lá lớn + max_features + max_samples
+    est, grid = load_model("b2t")
+    assert isinstance(est, RandomForestClassifier) and set(grid) == {"min_samples_leaf", "max_features", "max_samples"}
+    res = run_walkforward(m, ["cm_AdrActCnt", "cm_TxCnt"], est.set_params(n_estimators=50), folds[:1],
+                          param_grid={"min_samples_leaf": [50], "max_features": ["sqrt"], "max_samples": [None, 0.5]})
     assert res["p_hat"].between(0, 1).all()
 
     # 7) b4 (nếu cài được xgboost): xác suất hợp lệ, xếp hạng đúng hướng; số cây chọn bằng early stopping

@@ -73,6 +73,28 @@ python ngoc_pipeline/src/run_all.py --stage tables                           # t
 python ngoc_pipeline/src/walkforward.py                                      # vẽ lại results/figures/walkforward.png
 ```
 
+Các thí nghiệm theo góp ý 3–6 của thầy nằm trong `src/experiments.py` (đánh giá đầy đủ: `feedback_review/report.md`):
+
+```
+python ngoc_pipeline/src/experiments.py --stage tuning [--models lr b3]      # góp ý 3: tham số chọn mỗi lần tune, trước/sau tuning
+python ngoc_pipeline/src/experiments.py --stage tuning-tables                # -> results/tuning/tuning_{params,before_after}.csv
+python ngoc_pipeline/src/experiments.py --stage e2 [--models b2] [--configs no_flows]   # góp ý 4, 5: ablation trên bộ đặc trưng v2
+python ngoc_pipeline/src/experiments.py --stage e2-tables                    # -> results/e2/tables/
+python ngoc_pipeline/src/experiments.py --stage e3                           # góp ý 6: Δ theo regime HMM và theo xu hướng -> results/e3/
+python ngoc_pipeline/src/gate.py --stage gate                                # góp ý 4a: cổng baseline OHLCV, lưới mở rộng -> results/gate/baseline/
+python ngoc_pipeline/src/gate.py --stage stepwise                            # góp ý 4b: thêm nhóm On-chain tiến dần theo inner CV -> results/gate/stepwise/
+python ngoc_pipeline/src/gate.py --stage tables                              # -> results/gate/tables/, figures/fig_gate_by_year.png
+python ngoc_pipeline/src/rules30.py                                          # luật 30 ngày (mom30, ma30, maj30) + accuracy/F1 cả chuỗi -> results/rules30/
+python ngoc_pipeline/src/hybrid.py --stage a                                 # luật làm đặc trưng (dấu return hôm nay) cho B1–B4
+python ngoc_pipeline/src/hybrid.py --stage tables                            # + luật mặc định/mô hình ghi đè, luật On-chain cực trị -> results/hybrid/
+```
+
+- `src/gate.py`: tiêu chí cổng chốt trong code trước khi chạy. G1: log-loss inner CV thấp hơn B0 (tỷ lệ ngày tăng) ở ≥ 10/14 lần tune. G2: không tham số nào chạm biên lưới quá 7/14 lần. Kết quả: không mô hình nào qua cổng; stepwise không chọn nhóm On-chain nào ở 9–13/14 lần tune.
+
+- Bộ đặc trưng v2 (`configs/features_onchain_v2.yaml`) sửa v1 theo `eda_pre_training`: sai phân 7 ngày cho cột có mùa vụ tuần, bỏ MVRV, NVT, SplyExNtv, difficulty, Puell logdiff (20 đặc trưng On-chain). v1 giữ nguyên cho E1.
+- E2 thêm winsorize 1%/99% (`walkforward.QuantileClipper`, học trên train của fold) cho mọi cấu hình, kể cả chỉ OHLCV.
+- `src/stats.py`: block bootstrap, McNemar, Diebold–Mariano, Holm, xáo đợt regime cho placebo.
+
 - Mỗi lần chạy stage đều chạy test của mọi file trước.
 - Có thể chạy riêng một file, ví dụ `python ngoc_pipeline/src/features.py --test`.
 - Thời gian chạy E1 đủ: `b2` khoảng 7 phút, `b5` khoảng 1 phút (3 seed chạy song song), các mô hình khác dưới 1 phút.

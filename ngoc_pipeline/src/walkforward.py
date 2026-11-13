@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.pipeline import Pipeline
@@ -68,8 +68,27 @@ def inner_cv(n_splits=5, gap=1):
     return TimeSeriesSplit(n_splits=n_splits, gap=gap)
 
 
-def make_pipeline(estimator) -> Pipeline:
-    return Pipeline([("scaler", StandardScaler()), ("model", clone(estimator))])
+class QuantileClipper(TransformerMixin, BaseEstimator):
+    """Winsorize: cắt mỗi cột về [P_q, P_{1−q}] học trên dữ liệu được fit (cửa sổ train, hoặc phần train của
+    inner fold). Dùng cho đặc trưng đuôi dày (eda_pre_training 3a): một ngày như 12/03/2020 không còn chiếm
+    phần lớn phương sai khi StandardScaler chia cho độ lệch chuẩn."""
+
+    def __init__(self, q=0.01):
+        self.q = q
+
+    def fit(self, X, y=None):
+        X = np.asarray(X, float)
+        self.lo_, self.hi_ = np.quantile(X, self.q, axis=0), np.quantile(X, 1 - self.q, axis=0)
+        return self
+
+    def transform(self, X):
+        return np.clip(np.asarray(X, float), self.lo_, self.hi_)
+
+
+def make_pipeline(estimator, clip_q=None) -> Pipeline:
+    """Scaler (+ winsorize trước nếu clip_q) + mô hình; mọi bước fit lại trong từng cửa sổ train."""
+    steps = [("clip", QuantileClipper(clip_q))] if clip_q else []
+    return Pipeline(steps + [("scaler", StandardScaler()), ("model", clone(estimator))])
 
 
 def tune(pipe, param_grid, X, y, cv) -> dict:
@@ -84,9 +103,10 @@ def tune(pipe, param_grid, X, y, cv) -> dict:
 
 
 def run_walkforward(df, feature_cols, estimator, folds, param_grid=None, retune_every=6,
-                    inner_splits=5, gap_days=1, target=TARGET, **_) -> pd.DataFrame:
+                    inner_splits=5, gap_days=1, target=TARGET, clip_q=None, tune_log=None, **_) -> pd.DataFrame:
     """Chạy một mô hình sklearn qua mọi fold, trả predictions đúng định dạng chung.
-    Cửa sổ train thiếu nhãn là lỗi; dòng train còn NaN (warm-up) bị bỏ; NaN trong test là lỗi."""
+    Cửa sổ train thiếu nhãn là lỗi; dòng train còn NaN (warm-up) bị bỏ; NaN trong test là lỗi.
+    tune_log: list; nếu truyền vào thì mỗi lần tune ghi thêm một dict (fold, tham số chọn) để báo cáo tuning."""
     feature_cols, best, out = list(feature_cols), {}, []
     for i, fold in enumerate(folds):
         tr, te = fold_indices(df, fold, target)
@@ -98,9 +118,12 @@ def run_walkforward(df, feature_cols, estimator, folds, param_grid=None, retune_
         if test[feature_cols].isna().any().any():
             raise ValueError(f"Fold {fold.fold_id}: có NaN trong đặc trưng của tập test.")
         X, y = train[feature_cols].to_numpy(), train[target].astype(int).to_numpy()
-        pipe = make_pipeline(estimator)
+        pipe = make_pipeline(estimator, clip_q)
         if param_grid and i % retune_every == 0:
             best = tune(pipe, param_grid, X, y, inner_cv(inner_splits, gap_days))
+            if tune_log is not None:
+                tune_log.append({"fold": fold.fold_id, "train_start": fold.train_start.date(),
+                                 "train_end": fold.train_end.date(), **best})
         pipe.set_params(**{f"model__{k}": v for k, v in best.items()}).fit(X, y)
         out.append(pd.DataFrame({"date": test[DATE].to_numpy(), "fold": fold.fold_id,
                                  "y_true": test[target].astype(int).to_numpy(),
@@ -164,6 +187,21 @@ def _tests():
     broken.loc[te, cols] *= 1000
     res = run_walkforward(broken, cols, LogisticRegression(), folds[10:11])
     np.testing.assert_allclose(res["p_hat"], pipe.predict_proba(broken.loc[te, cols].to_numpy())[:, 1])
+
+    # 3b) Winsorize chỉ học từ train: ngưỡng là phân vị của train; giá trị test vượt ngưỡng bị cắt về ngưỡng;
+    #     không truyền clip_q thì pipeline giữ nguyên như cũ (2 bước)
+    Xtr = np.random.default_rng(3).normal(size=(500, 2))
+    c = QuantileClipper(0.01).fit(Xtr)
+    np.testing.assert_allclose(c.lo_, np.quantile(Xtr, 0.01, axis=0))
+    out = c.transform(np.array([[100.0, -100.0], [0.0, 0.0]]))
+    np.testing.assert_allclose(out[0], [c.hi_[0], c.lo_[1]])
+    np.testing.assert_allclose(out[1], [0.0, 0.0])
+    assert [s for s, _ in make_pipeline(LogisticRegression()).steps] == ["scaler", "model"]
+    assert [s for s, _ in make_pipeline(LogisticRegression(), 0.01).steps] == ["clip", "scaler", "model"]
+    log = []
+    run_walkforward(m, cols, LogisticRegression(), folds[:7], param_grid={"C": [0.1, 1.0]}, retune_every=6,
+                    clip_q=0.01, tune_log=log)
+    assert [r["fold"] for r in log] == [folds[0].fold_id, folds[6].fold_id] and all("C" in r for r in log)
 
     # 4) Inner CV theo thời gian, có gap
     for a, b in inner_cv(5, 1).split(np.zeros((730, 1))):

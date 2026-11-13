@@ -1,0 +1,38 @@
+# Biến đổi On-chain v2 (Vi, góp ý 4 của thầy): sửa bộ v1 theo eda_pre_training, chốt TRƯỚC khi chạy E2.
+# Mọi lý do chỉ dựa trên chính chuỗi On-chain, giá và đặc trưng OHLCV, không dùng nhãn.
+# v1 (features_onchain.yaml) giữ nguyên để E1 tái lập được.
+flows_set: A
+ma_short: 7
+ma_long: 30
+z_window: 90
+shift_days: 1
+ffill_limit: 3
+signed_cols: [cm_NetflowExNtv]
+
+# Mùa vụ theo thứ trong tuần chiếm > 25% phương sai logdiff (eda_pre_training 2b): sai phân 7 ngày,
+# tức so với cùng thứ tuần trước, thay cho sai phân 1 ngày. TxCnt chỉ 7% nên giữ 1 ngày.
+diff_lag:
+  bc_est_tx_vol_usd: 7     # 63%
+  cm_AdrActCnt: 7          # 46%
+  cm_FeeTotNtv: 7          # 34%
+
+drop_features:
+  # R² > 0,5 theo 10 đặc trưng OHLCV (eda_pre_training 3c): MVRV gần như là giá đóng gói lại
+  - cm_CapMVRVCur_logdiff   # R² 0,98, ≈ logret_lag2
+  - cm_CapMVRVCur_ma7_30    # R² 0,72
+  - cm_CapMVRVCur_z90       # R² 0,78
+  # NVT = vốn hoá / khối lượng giao dịch: hàm xác định của giá và bc_est_tx_vol_usd (ρ logdiff −0,997)
+  - nvt_ratio_bc_logdiff
+  - nvt_ratio_bc_ma7_30
+  - nvt_ratio_bc_z90
+  # Puell logdiff ≈ HashRate logdiff (ρ 0,95): phát hành mỗi ngày tỷ lệ với số block
+  - puell_multiple_logdiff
+  # SplyExNtv: logdiff ≈ Netflow / Sply (ΔSply = Netflow đúng tới từng BTC, mục 4a);
+  # MA7/MA30 và z90 không dừng theo ADF + KPSS (mục 2c). Flows chỉ còn Netflow.
+  - cm_SplyExNtv_logdiff
+  - cm_SplyExNtv_ma7_30
+  - cm_SplyExNtv_z90
+  # Difficulty là hàm trễ của hashrate, đổi mỗi 2.016 block; logdiff = 0 ở 84% số ngày (mục 0)
+  - bc_difficulty_logdiff
+  - bc_difficulty_ma7_30
+  - bc_difficulty_z90

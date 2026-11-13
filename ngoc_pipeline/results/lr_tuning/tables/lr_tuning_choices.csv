@@ -1,0 +1,3 @@
+criterion,n_tunes,sets,C,C_at_edge,l1_ratio,class_weight,inner_logloss,inner_logloss_prior,n_beats_prior,inner_acc
+acc,14,lag1+sign×3; sign×3; ohlcv10×3; lag1×3; ohlcv10+sign×2,0.0001×4; 0.003×2; 0.01×2; 0.03×2; 0.1×2; 0.3×2,4,0×9; 0.5×3; 1×2,balanced×12; none×2,0.6922140934158184,0.6949793083276415,13,0.5468713105076741
+logloss,14,lag1×6; sign×4; lag1+sign×2; ohlcv10×2,0.003×1; 0.01×3; 0.03×4; 0.3×1; 10×5,5,0×12; 0.5×2,balanced×13; none×1,0.6897549312604027,0.6949793083276415,14,0.5386068476977568

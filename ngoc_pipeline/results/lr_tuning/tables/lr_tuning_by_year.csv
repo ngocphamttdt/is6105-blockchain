@@ -13,20 +13,20 @@ method,year,accuracy
 "B1 lưới C mở rộng (gate): 10 OHLCV, C ∈ {1e-4..1}, L2",2024,0.5163934426229508
 "B1 lưới C mở rộng (gate): 10 OHLCV, C ∈ {1e-4..1}, L2",2025,0.4794520547945205
 "B1 lưới C mở rộng (gate): 10 OHLCV, C ∈ {1e-4..1}, L2",2026,0.45041322314049587
-"B1 tune đầy đủ, chọn theo log-loss",2020,0.5901639344262295
-"B1 tune đầy đủ, chọn theo log-loss",2021,0.536986301369863
-"B1 tune đầy đủ, chọn theo log-loss",2022,0.4821917808219178
+"B1 tune đầy đủ, chọn theo log-loss",2020,0.5846994535519126
+"B1 tune đầy đủ, chọn theo log-loss",2021,0.5643835616438356
+"B1 tune đầy đủ, chọn theo log-loss",2022,0.5095890410958904
 "B1 tune đầy đủ, chọn theo log-loss",2023,0.547945205479452
 "B1 tune đầy đủ, chọn theo log-loss",2024,0.5409836065573771
 "B1 tune đầy đủ, chọn theo log-loss",2025,0.4931506849315068
-"B1 tune đầy đủ, chọn theo log-loss",2026,0.47107438016528924
-"B1 tune đầy đủ, chọn theo accuracy",2020,0.5655737704918032
-"B1 tune đầy đủ, chọn theo accuracy",2021,0.5643835616438356
-"B1 tune đầy đủ, chọn theo accuracy",2022,0.5260273972602739
+"B1 tune đầy đủ, chọn theo log-loss",2026,0.45867768595041325
+"B1 tune đầy đủ, chọn theo accuracy",2020,0.5901639344262295
+"B1 tune đầy đủ, chọn theo accuracy",2021,0.5205479452054794
+"B1 tune đầy đủ, chọn theo accuracy",2022,0.5095890410958904
 "B1 tune đầy đủ, chọn theo accuracy",2023,0.5452054794520548
-"B1 tune đầy đủ, chọn theo accuracy",2024,0.546448087431694
-"B1 tune đầy đủ, chọn theo accuracy",2025,0.5068493150684932
-"B1 tune đầy đủ, chọn theo accuracy",2026,0.4214876033057851
+"B1 tune đầy đủ, chọn theo accuracy",2024,0.5437158469945356
+"B1 tune đầy đủ, chọn theo accuracy",2025,0.4821917808219178
+"B1 tune đầy đủ, chọn theo accuracy",2026,0.4793388429752066
 Luật đảo chiều (b0rev),2020,0.5846994535519126
 Luật đảo chiều (b0rev),2021,0.5643835616438356
 Luật đảo chiều (b0rev),2022,0.5095890410958904

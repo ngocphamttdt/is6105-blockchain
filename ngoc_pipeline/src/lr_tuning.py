@@ -6,7 +6,7 @@ không chọn theo test). Không gian tìm và tiêu chí chốt TRƯỚC khi ch
   tập đặc trưng  ohlcv10 | ohlcv10+sign | lag1 | sign | lag1+sign
                  (ohlcv10 = 10 đặc trưng OHLCV; lag1 = logret_lag1; sign = up_lag1 = 1[logret_lag1 > 0])
   C              1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 0,1, 0,3, 1, 10
-  l1_ratio       0 (L2), 0,5 (elastic-net), 1 (L1)              solver saga
+  l1_ratio       0 (L2), 0,5 (elastic-net), 1 (L1)              solver L-BFGS-B tất định (ElasticNetLR)
   class_weight   None, balanced
   = 300 tổ hợp. Tiền xử lý như E2: winsorize 1%/99% + StandardScaler, fit trong từng split.
 Hai tiêu chí chọn (đều chỉ trên validation):
@@ -16,9 +16,12 @@ Hoà điểm (làm tròn 10 chữ số) thì lấy tổ hợp đơn giản hơn:
 
 So sánh trên test: LR E1 (lưới C cũ, 10 OHLCV), LR gate (lưới C mở rộng), hai bản tuning mới, luật đảo chiều.
 
-  python ngoc_pipeline/src/lr_tuning.py --stage run       (~10–20 phút)
+  python ngoc_pipeline/src/lr_tuning.py --stage run       (~1 phút)
   python ngoc_pipeline/src/lr_tuning.py --stage tables
-Output: results/lr_tuning/{predictions,log,tables}/, figures/fig_lr_tuning.png
+  python ngoc_pipeline/src/lr_tuning.py --stage e1        E1 với B1 tune: cấu hình E1 (v1, 33 On-chain), tiêu chí log-loss;
+                                                          +On-chain = mỗi tập ứng viên + 33 đặc trưng On-chain
+Output: results/lr_tuning/{predictions,log,tables}/, figures/fig_lr_tuning.png;
+        results/lr_tuning/e1/{ohlcv,ohlcv_onchain}/{predictions/lr_{config}.csv, log/}
 """
 import argparse
 import sys
@@ -26,10 +29,13 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import minimize
+from scipy.special import expit
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, matthews_corrcoef, roc_auc_score
 from sklearn.model_selection import GridSearchCV
+from sklearn.utils.class_weight import compute_sample_weight
 
 import stats
 from data import DATE, PREDICTION_COLS, RESULTS, TARGET, read_csv_dated, write_csv
@@ -51,8 +57,59 @@ def feature_sets(ohlcv):
             "ohlcv10": list(ohlcv), "ohlcv10+sign": list(ohlcv) + [SIGN]}
 
 
+class ElasticNetLR(ClassifierMixin, BaseEstimator):
+    """Logistic regression elastic-net, cùng hàm mục tiêu với sklearn LogisticRegression:
+        min  Σ w_i·logloss_i + (1/C)·[(1 − l1_ratio)/2·‖β‖² + l1_ratio·‖β‖₁],  intercept không bị phạt.
+    Không dùng solver saga vì điều kiện dừng của nó (sklearn 1.9) chỉ xét hệ số, bỏ qua intercept: khi phạt mạnh
+    làm mọi hệ số = 0, saga dừng sau 1 vòng với intercept còn sai và phụ thuộc random_state (fold 0, tập sign,
+    C=1e-4, L1: intercept đúng 0,097 nhưng saga cho 0,29 / 1,48 / 0,40 với seed 0 / 42 / 7, kể cả khi tol=0).
+    Ở đây giải tất định bằng L-BFGS-B với β = β⁺ − β⁻, β± ≥ 0 (L1 thành trơn; hệ số về 0 đúng nghĩa ở biên)."""
+
+    def __init__(self, C=1.0, l1_ratio=0.0, class_weight=None, tol=1e-10, max_iter=20000):
+        self.C, self.l1_ratio, self.class_weight, self.tol, self.max_iter = C, l1_ratio, class_weight, tol, max_iter
+
+    def fit(self, X, y):
+        X, y = np.asarray(X, float), np.asarray(y)
+        self.classes_ = np.unique(y)
+        y = (y == self.classes_[1]).astype(float)
+        n, p = X.shape
+        w = compute_sample_weight(self.class_weight, y) / n                  # chia n: cùng nghiệm, số học ổn hơn
+        lam, a = 1.0 / (self.C * n), self.l1_ratio
+
+        def f(z):
+            bp, bm, b0 = z[:p], z[p:2 * p], z[-1]
+            beta = bp - bm
+            m = X @ beta + b0
+            loss = w @ (np.logaddexp(0, m) - y * m)
+            r = w * (expit(m) - y)
+            g = X.T @ r + lam * (1 - a) * beta
+            return (loss + lam * ((1 - a) / 2 * beta @ beta + a * (bp.sum() + bm.sum())),
+                    np.concatenate([g + lam * a, -g + lam * a, [r.sum()]]))
+
+        pr = np.clip(w @ y / w.sum(), 1e-12, 1 - 1e-12)
+        z0 = np.zeros(2 * p + 1)
+        z0[-1] = np.log(pr / (1 - pr))
+        res = minimize(f, z0, jac=True, method="L-BFGS-B", bounds=[(0, None)] * (2 * p) + [(None, None)],
+                       options={"maxiter": self.max_iter, "ftol": 1e-15, "gtol": self.tol})
+        self.coef_ = (res.x[:p] - res.x[p:2 * p])[None, :]
+        self.intercept_ = res.x[-1:]
+        self.n_iter_ = np.array([res.nit])
+        self.converged_ = bool(res.success)
+        return self
+
+    def decision_function(self, X):
+        return np.asarray(X, float) @ self.coef_[0] + self.intercept_[0]
+
+    def predict_proba(self, X):
+        p1 = expit(self.decision_function(X))
+        return np.column_stack([1 - p1, p1])
+
+    def predict(self, X):
+        return self.classes_[(self.decision_function(X) > 0).astype(int)]
+
+
 def estimator():
-    return LogisticRegression(solver="saga", max_iter=5000, tol=1e-4, random_state=0)
+    return ElasticNetLR()
 
 
 def search(train, sets, wf):
@@ -79,13 +136,20 @@ def pick(res, criterion):
     return res.assign(_k=key).sort_values(["_k", "set_rank", "C"], kind="stable").iloc[0]
 
 
-def stage_run():
-    data, sets_, folds, wf, _ = setup("features_onchain_v2.yaml")
+def stage_run(fe="features_onchain_v2.yaml", onchain=False, out_dir=OUT, criteria=tuple(CRITERIA),
+              names=None):
+    """Tune B1 trên mọi fold. onchain=True: mỗi tập ứng viên được thêm toàn bộ đặc trưng On-chain của `fe`
+    (cùng lưới, cùng tiêu chí), để Δ On-chain so hai bản B1 tune cùng quy trình (góp ý 4)."""
+    data, sets_, folds, wf, _ = setup(fe)
     data = with_sign(data)
     sets = feature_sets(sets_["ohlcv"])
+    if onchain:
+        oc = [c for c in sets_["ohlcv_onchain"] if c not in sets_["ohlcv"]]
+        sets = {f"{k}+oc": v + oc for k, v in sets.items()}
+    names = names or {c: f"lr_tuned_{c}" for c in criteria}
     all_cols = sorted({c for v in sets.values() for c in v})
     rmap = load_regime_map()
-    out = {c: [] for c in CRITERIA}
+    out = {c: [] for c in criteria}
     logs, chosen = [], {}
     for i, f in enumerate(folds):
         tr, te = fold_indices(data, f)
@@ -95,8 +159,8 @@ def stage_run():
             prior = np.mean([log_loss(train[TARGET].to_numpy()[va], np.full(len(va), train[TARGET].to_numpy()[t].mean()),
                                       labels=[0, 1]) for t, va in inner_cv(wf["inner_splits"], wf["gap_days"])
                              .split(train)])
-            write_csv(res, OUT / "log" / "grid" / f"fold{f.fold_id:02d}.csv")
-            for c in CRITERIA:
+            write_csv(res, out_dir / "log" / "grid" / f"fold{f.fold_id:02d}.csv")
+            for c in criteria:
                 b = pick(res, c)
                 chosen[c] = b
                 logs.append({"criterion": c, "fold": f.fold_id, "train_start": f.train_start.date(),
@@ -105,10 +169,11 @@ def stage_run():
                              "inner_acc": b["inner_acc"], "inner_logloss_prior": prior})
             print(f"fold {f.fold_id}: " + "; ".join(f"{c}: {chosen[c]['set']}, C={chosen[c]['C']:g}, "
                                                    f"l1={chosen[c]['l1_ratio']:g}, cw={chosen[c]['class_weight']}"
-                                                   for c in CRITERIA), flush=True)
-        for c in CRITERIA:
+                                                   for c in criteria), flush=True)
+        for c in criteria:
             b = chosen[c]
             cols = sets[b["set"]]
+            assert not test[cols].isna().any().any(), f"fold {f.fold_id}: thiếu đặc trưng ở ngày test"
             pipe = make_pipeline(estimator(), CLIP_Q).set_params(
                 model__C=b["C"], model__l1_ratio=b["l1_ratio"],
                 model__class_weight=None if b["class_weight"] == "none" else b["class_weight"])
@@ -118,11 +183,11 @@ def stage_run():
             out[c].append(pd.DataFrame({"date": test[DATE].to_numpy(), "fold": f.fold_id,
                                         "y_true": test[TARGET].astype(int).to_numpy(),
                                         "p_hat": pipe.predict_proba(test[cols].to_numpy())[:, 1], "regime": pd.NA}))
-    for c in CRITERIA:
+    for c in criteria:
         p = pd.concat(out[c], ignore_index=True)[PREDICTION_COLS]
-        write_csv(attach_regime(p, rmap), OUT / "predictions" / f"lr_tuned_{c}.csv")
-        print(f"lr_tuned_{c}: accuracy {score(p)['accuracy']:.4f}", flush=True)
-    write_csv(pd.DataFrame(logs), OUT / "log" / "chosen.csv")
+        write_csv(attach_regime(p, rmap), out_dir / "predictions" / f"{names[c]}.csv")
+        print(f"{names[c]}: accuracy {score(p)['accuracy']:.4f}", flush=True)
+    write_csv(pd.DataFrame(logs), out_dir / "log" / "chosen.csv")
 
 
 # ----------------------------------------------------------------------------
@@ -239,11 +304,15 @@ def _tests():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--stage", choices=["run", "tables", "test"], required=True)
+    ap.add_argument("--stage", choices=["run", "e1", "tables", "test"], required=True)
     args = ap.parse_args(argv)
     _tests()
     if args.stage == "run":
         stage_run()
+    elif args.stage == "e1":
+        for cfg in ("ohlcv", "ohlcv_onchain"):
+            stage_run("features_onchain.yaml", onchain=cfg == "ohlcv_onchain", out_dir=OUT / "e1" / cfg,
+                      criteria=("logloss",), names={"logloss": f"lr_{cfg}"})
     elif args.stage == "tables":
         pd.set_option("display.width", 300)
         t, ch, yr = tables()

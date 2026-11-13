@@ -9,11 +9,11 @@ Nguyên tắc: dòng ngày t chỉ dùng dữ liệu ĐẾN HẾT ngày t (UTC).
   data/processed/ohlcv_1h_clean.csv   cột datetime, close      (giá 1h, chỉ để tính RV)
   data/processed/MANIFEST.json        sha256: lệch thì dừng
 Đầu ra:
-  tram_features_backtest/data/features_ohlcv.csv : cột date + 10 đặc trưng
+  tram_features_backtest/data/features_ohlcv.csv : cột date + 11 đặc trưng (10 ban đầu + up_today)
 
 Dùng trong pipeline của Ngọc (thay build_ohlcv_features tạm trong ngoc_pipeline/src/features.py):
   from features_ohlcv import build_ohlcv_features
-  ohlcv = build_ohlcv_features(master)   # master = load_master(); trả cột date + 10 đặc trưng, cùng số dòng
+  ohlcv = build_ohlcv_features(master)   # master = load_master(); trả cột date + 11 đặc trưng, cùng số dòng
 
 Ghi chú giờ thiếu: file 1h thiếu 127 giờ (sàn bảo trì) và không được điền. Return 1h được tính giữa hai
 nến liên tiếp có dữ liệu, nên phần biến động trong lúc sàn nghỉ vẫn được cộng vào RV của ngày chứa
@@ -35,8 +35,12 @@ OUT = Path(__file__).resolve().parents[1] / "data/features_ohlcv.csv"
 
 DATE = "date"
 OHLCV_COLS = ["ohlcv_open", "ohlcv_high", "ohlcv_low", "ohlcv_close", "ohlcv_volume"]
-FEATURES = ["logret_lag1", "logret_lag2", "logret_lag3", "logret_lag4", "logret_lag5",
-            "hl_range", "dlog_volume", "rsi_14", "rv_7d", "rv_30d"]
+# Bộ 10 đặc trưng ban đầu (task 1.13). Giữ tên này để các báo cáo cũ (baseline_check) tái tạo được.
+FEATURES_10 = ["logret_lag1", "logret_lag2", "logret_lag3", "logret_lag4", "logret_lag5",
+               "hl_range", "dlog_volume", "rsi_14", "rv_7d", "rv_30d"]
+# 12/11/2026: thêm up_today = 1[return ngày t > 0]. Quy luật duy nhất tìm được (baseline_check) là đảo chiều theo
+# DẤU return 1 ngày, trong khi 10 cột trên chỉ đo độ lớn. Đặt cuối danh sách để lrfs vẫn bắt đầu từ logret_lag1.
+FEATURES = FEATURES_10 + ["up_today"]
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +74,14 @@ def rsi(close: pd.Series, period: int = 14) -> pd.Series:
     return out.where(avg_loss != 0, 100.0).where(avg_gain.notna())
 
 
+def up_today(close: pd.Series) -> pd.Series:
+    """1 nếu giá đóng cửa ngày t cao hơn ngày t−1, 0 nếu không; NaN ở ngày đầu chuỗi.
+    Cùng thông tin với dấu của logret_lag1, nhưng ở dạng 0/1 để mô hình tuyến tính dùng thẳng quy luật đảo chiều
+    (logret_lag1 đo độ lớn: ngày tăng 0,2% và ngày tăng 5% cách nhau rất xa, dù cùng là "ngày tăng")."""
+    prev = close.shift(1)
+    return (close > prev).astype(float).where(prev.notna())
+
+
 def realized_vol(close_1h: pd.Series, windows=(7, 30)) -> pd.DataFrame:
     """Realized volatility từ log return 1h.
        RV_ngày(d) = tổng bình phương log return 1h trong ngày d (UTC)
@@ -90,6 +102,7 @@ def build_features(daily: pd.DataFrame, close_1h: pd.Series) -> pd.DataFrame:
         hl_range(daily["high"], daily["low"], daily["close"]).rename("hl_range"),
         dlog_volume(daily["volume"]).rename("dlog_volume"),
         rsi(daily["close"]).rename("rsi_14"),
+        up_today(daily["close"]).rename("up_today"),
     ]
     out = pd.concat(feats, axis=1)
     out = out.join(realized_vol(close_1h), how="left")
@@ -125,7 +138,7 @@ def load_close_1h(path=H1) -> pd.Series:
 
 def build_ohlcv_features(master: pd.DataFrame, close_1h: pd.Series | None = None) -> pd.DataFrame:
     """Giao diện cho pipeline của Ngọc: nhận master (cột date + ohlcv_*), trả DataFrame cột date
-       (datetime64[ns], không múi giờ) + 10 đặc trưng, cùng số dòng và thứ tự với master.
+       (datetime64[ns], không múi giờ) + các cột FEATURES, cùng số dòng và thứ tự với master.
        Ngày chưa có giá (trước 17/08/2017) thì đặc trưng là NaN."""
     if close_1h is None:
         close_1h = load_close_1h()
@@ -196,9 +209,14 @@ def _tests():
     assert np.isclose(f.loc[t, "dlog_volume"],
                       np.log(daily.loc[t, "volume"] / daily.loc[daily.index[49], "volume"]))
     assert f["rsi_14"].dropna().between(0, 100).all()
+    # up_today: đúng dấu của logret_lag1, chỉ nhận 0/1, ngày đầu NaN
+    ok = f["logret_lag1"].notna()
+    assert (f.loc[ok, "up_today"] == (f.loc[ok, "logret_lag1"] > 0).astype(float)).all()
+    assert set(f["up_today"].dropna().unique()) <= {0.0, 1.0} and np.isnan(f["up_today"].iloc[0])
+    assert FEATURES[:len(FEATURES_10)] == FEATURES_10 and FEATURES[-1] == "up_today"
     assert (f["rv_30d"].dropna() > 0).all()
 
-    # 3) Giao diện cho pipeline Ngọc: cột date + 10 đặc trưng, cùng số dòng/thứ tự với master,
+    # 3) Giao diện cho pipeline Ngọc: cột date + FEATURES, cùng số dòng/thứ tự với master,
     #    ngày chưa có giá thì NaN, giá trị khớp build_features
     m = _fake_master(daily)
     o = build_ohlcv_features(m, c1h)

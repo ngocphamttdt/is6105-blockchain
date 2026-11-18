@@ -151,6 +151,7 @@ Các phân tích này phần lớn được làm theo góp ý của giảng viê
 | `naive_folds/` | So các mô hình với baseline "luôn tăng" và "luôn giảm" trên từng fold | `reports/naive_folds.md` |
 | `up_today/` | Thêm đặc trưng `up_today` (dấu return hôm nay), chạy lại B1 và B3 | `reports/up_today_report.md` |
 | `paper_replication/` | Tái lập các bài báo tham khảo (Hafid 2024, …) và áp dụng lên dữ liệu của nhóm | `<bài báo>/reports/` |
+| `tuning_summary/` | Bảng tổng hợp **trước / sau tuning** của mọi baseline B0–B5 (chưa tune · grid gốc · tune lại), tính lại từ các file dự báo đã có | `reports/tuning_summary.md` |
 
 ### (7) `docs/` — Tài liệu
 

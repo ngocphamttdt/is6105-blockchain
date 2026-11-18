@@ -76,6 +76,10 @@ Ba loại không chạy qua `GridSearchCV` chung của `walkforward.py`:
 | `logreg_elasticnet` | `b1t` | `src/b1t_tuning.py`, vì ngoài tham số mô hình còn tune cả tập đặc trưng (`feature_sets`) và có 2 tiêu chí chọn (`criteria`) |
 | (không có) | `b5` | `run_all.py`: chạy mỗi seed trong `seeds` một lần rồi lấy trung bình p̂ |
 
+## Kết quả trước / sau tuning
+
+Bảng so sánh mọi mức tune của mọi baseline trên cùng 2.434 ngày test, kèm Δ và CI: [`analyses/tuning_summary/reports/tuning_summary.md`](../../../analyses/tuning_summary/reports/tuning_summary.md).
+
 ## Thêm mô hình hoặc grid mới
 
 Tạo file mới thay vì sửa file cũ. Sửa grid trong file cũ sẽ làm kết quả cũ không còn tái lập được. Bản tune lại của một mô hình đặt tên là mã cũ + `t`, và ghi `tuning: retuned`. Thuật toán mới thì đăng ký bằng `register("<tên>", <lớp>)` trong `src/models.py` rồi ghi `class: <tên>`.

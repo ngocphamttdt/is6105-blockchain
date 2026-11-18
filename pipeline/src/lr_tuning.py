@@ -38,23 +38,25 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.utils.class_weight import compute_sample_weight
 
 import stats
-from data import DATE, PREDICTION_COLS, RESULTS, TARGET, read_csv_dated, write_csv
-from experiments import CLIP_Q, E2_DIR, setup
+from data import DATE, PREDICTION_COLS, RESULTS, TARGET, load_config, read_csv_dated, write_csv
+from experiments import E2_DIR, setup
 from hybrid import SIGN, with_sign
 from rules30 import OUT as R30, score
 from run_all import attach_regime, load_regime_map
 from walkforward import fold_indices, inner_cv, make_pipeline
 
 OUT = RESULTS / "lr_tuning"
-GRID = {"C": [1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 0.1, 0.3, 1, 10],
-        "l1_ratio": [0.0, 0.5, 1.0], "class_weight": [None, "balanced"]}
-CRITERIA = {"logloss": "neg_log_loss", "acc": "accuracy"}
+CFG = load_config("models/lrt.yaml")          # tập đặc trưng, grid, tiêu chí: chốt trong file config
+GRID = CFG["param_grid"]
+CRITERIA = CFG["criteria"]
+CLIP_Q = CFG["params"]["clip_q"]
 
 
 def feature_sets(ohlcv):
-    """Theo thứ tự từ đơn giản đến phức tạp (dùng để phá hoà)."""
-    return {"sign": [SIGN], "lag1": ["logret_lag1"], "lag1+sign": ["logret_lag1", SIGN],
-            "ohlcv10": list(ohlcv), "ohlcv10+sign": list(ohlcv) + [SIGN]}
+    """Tập ứng viên theo thứ tự trong config, từ đơn giản đến phức tạp (dùng để phá hoà).
+    "ohlcv" trong config được thay bằng danh sách đặc trưng OHLCV."""
+    return {name: [c for col in cols for c in (list(ohlcv) if col == "ohlcv" else [col])]
+            for name, cols in CFG["feature_sets"].items()}
 
 
 class ElasticNetLR(ClassifierMixin, BaseEstimator):
@@ -299,6 +301,11 @@ def _tests():
     assert pick(res, "logloss")["C"] == 1.0                      # hoà log-loss → tập đơn giản hơn (rank 0)
     assert pick(res, "acc")["C"] == 0.01                          # hoà accuracy → tập rank 0, rồi C nhỏ hơn
     assert len(GRID["C"]) * len(GRID["l1_ratio"]) * len(GRID["class_weight"]) * 5 == 300
+    # Config lrt.yaml: tập đặc trưng đúng thứ tự, "ohlcv" được thay bằng cột OHLCV, cột dấu là up_lag1 của hybrid
+    o = ["a", "b"]
+    assert feature_sets(o) == {"sign": [SIGN], "lag1": ["logret_lag1"], "lag1+sign": ["logret_lag1", SIGN],
+                               "ohlcv10": o, "ohlcv10+sign": o + [SIGN]}
+    assert all(isinstance(c, (int, float)) for c in GRID["C"]) and GRID["class_weight"] == [None, "balanced"]
     print("Tất cả test lr_tuning đều PASS")
 
 

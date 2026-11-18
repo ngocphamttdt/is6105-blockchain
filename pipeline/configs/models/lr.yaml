@@ -1,4 +1,6 @@
 # B1 Logistic Regression (Trâm sở hữu; bản đầu cho pipeline mỏng 2.8)
+baseline: B1
+tuning: original_grid  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
 class: lr
 params:
   max_iter: 1000

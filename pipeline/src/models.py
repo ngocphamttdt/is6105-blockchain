@@ -176,16 +176,25 @@ def persistence_predictions(data, folds, target=TARGET) -> pd.DataFrame:
     return _direction_rule(data, folds, target, lambda y, y_prev: False)
 
 
-def reversal_predictions(data, folds, target=TARGET) -> pd.DataFrame:
-    """B0 đảo chiều: p̂_t = 1 − y_{t−1} nếu trong cửa sổ train persistence đúng < 50%, ngược lại p̂_t = y_{t−1}.
+def reversal_predictions(data, folds, target=TARGET, flip_below=0.5) -> pd.DataFrame:
+    """B0 đảo chiều: p̂_t = 1 − y_{t−1} nếu trong cửa sổ train persistence đúng < flip_below, ngược lại p̂_t = y_{t−1}.
     Nhãn của ngày train cuối dùng close của ngày gap, nên việc chọn chiều không chạm ngày test nào."""
-    return _direction_rule(data, folds, target, lambda y, y_prev: (y == y_prev).mean() < 0.5)
+    return _direction_rule(data, folds, target, lambda y, y_prev: (y == y_prev).mean() < flip_below)
 
 
 REGISTRY = {"lr": LogisticRegression, "b0maj": DummyClassifier, "b3": CalibratedSVC,
             "b2": RandomForestClassifier, "b4": EarlyStoppingXGB, "lrfs": ForwardSelectLR}
 RULES = {"b0pers": persistence_predictions,     # mô hình theo luật: không fit, không tune
-         "b0rev": reversal_predictions}
+         "b0rev": reversal_predictions}         # tham số trong configs/models/{b0pers,b0rev}.yaml
+RULE_FUNCS = {"persistence": persistence_predictions, "reversal": reversal_predictions}
+
+
+def run_rule(name, data, folds, target=TARGET) -> pd.DataFrame:
+    """Chạy luật B0 theo configs/models/{name}.yaml (class: rule, rule: <tên luật>, params: tham số của luật)."""
+    cfg = yaml.safe_load((CONFIG_DIR / "models" / f"{name}.yaml").read_text())
+    if cfg.get("class") != "rule":
+        raise ValueError(f"'{name}' không phải luật (class: {cfg.get('class')}); dùng load_model.")
+    return RULE_FUNCS[cfg["rule"]](data, folds, target, **(cfg.get("params") or {}))
 
 
 def register(name, cls):
@@ -201,6 +210,9 @@ def load_model(name):
     if not path.exists():
         raise ValueError(f"Chưa có config cho mô hình '{name}': {path}")
     cfg = yaml.safe_load(path.read_text())
+    if cfg.get("class") not in REGISTRY:
+        raise ValueError(f"'{name}' (class: {cfg.get('class')}) không chạy qua load_model: luật B0 dùng run_rule, "
+                         f"lrt dùng lr_tuning.py.")
     return REGISTRY[cfg["class"]](**(cfg.get("params") or {})), cfg.get("param_grid") or {}
 
 
@@ -218,6 +230,13 @@ def _tests():
     assert isinstance(load_model("b0maj")[0], DummyClassifier)
     _raises(lambda: load_model("khong_co"), "Chưa có config")
     _raises(lambda: register("lr", SVC), "đã được đăng ký")
+
+    # 1b) Quy ước tên: mọi config có baseline (B0–B5) và tuning; hậu tố "t" <=> đã tune lại (retuned)
+    for path in sorted((CONFIG_DIR / "models").glob("*.yaml")):
+        cfg = yaml.safe_load(path.read_text())
+        assert cfg.get("baseline") in {f"B{i}" for i in range(6)}, f"{path.name}: thiếu/sai baseline"
+        assert cfg.get("tuning") in {"none", "original_grid", "retuned"}, f"{path.name}: thiếu/sai tuning"
+        assert path.stem.endswith("t") == (cfg["tuning"] == "retuned"), f"{path.name}: hậu tố t không khớp tuning"
 
     # 2) b0maj: p̂ = tỷ lệ ngày tăng trong cửa sổ train của từng fold
     res = run_walkforward(m, ["cm_AdrActCnt"], load_model("b0maj")[0], folds[:3])
@@ -243,6 +262,12 @@ def _tests():
         k = res["fold"] == f.fold_id
         np.testing.assert_array_equal(rev.loc[k, "p_hat"], 1 - res.loc[k, "p_hat"] if flip else res.loc[k, "p_hat"])
     pd.testing.assert_frame_equal(reversal_predictions(m2, folds[:5]), rev)
+    #     Đọc từ config cho đúng kết quả gọi hàm trực tiếp; config luật không chạy qua load_model
+    pd.testing.assert_frame_equal(run_rule("b0rev", m, folds[:5]), rev)
+    pd.testing.assert_frame_equal(run_rule("b0pers", m, folds[:5]), res)
+    _raises(lambda: load_model("b0rev"), "không chạy qua load_model")
+    _raises(lambda: load_model("lrt"), "không chạy qua load_model")
+    _raises(lambda: run_rule("lr", m, folds[:5]), "không phải luật")
     #     Chuỗi đảo chiều hoàn hảo trong train thì luật lật chiều và đúng 100% trên test
     alt = m.copy()
     alt[CLOSE] = 100 * np.where(np.arange(len(alt)) % 2, 1.1, 1.0)

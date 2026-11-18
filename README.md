@@ -112,18 +112,16 @@ Tạo lại bằng `src/data_freeze.py`. Khi thấy lỗi dữ liệu thì ra ph
 | `lr_tuning.py` | Tuning đầy đủ cho B1 Logistic Regression (tập đặc trưng, C, L1/L2, class_weight) |
 | `rules30.py` | Luật đơn giản theo cửa sổ 30 ngày, bảng accuracy / F1 |
 
-**Mô hình** (config ở `configs/models/*.yaml`, gồm tham số cố định và grid tuning):
+**Mô hình** (config ở `configs/models/*.yaml`; quy ước đặt tên ở [`configs/models/README.md`](pipeline/configs/models/README.md)). Mã có **hậu tố `t`** là bản **đã tune lại**, nằm cạnh bản tune bằng grid gốc:
 
-| Mã | Mô hình | Ghi chú |
-|---|---|---|
-| `b0maj` | B0 Majority | p̂ = tỷ lệ ngày tăng trong cửa sổ train; mức sàn cho log-loss |
-| `b0pers` | B0 Persistence | Ngày mai cùng hướng hôm nay; mức sàn cho DA |
-| `b0rev` | B0 Đảo chiều | Ngày mai ngược hướng hôm nay, chiều được chọn trên cửa sổ train |
-| `lr`, `lrfs` | B1 Logistic Regression | `lrfs` có thêm bước chọn đặc trưng tiến dần |
-| `b2`, `b2t` | B2 Random Forest | `b2t` là bản đã tune lại grid (xem `analyses/b2_tuning/`) |
-| `b3` | B3 SVM RBF | Xác suất hiệu chỉnh bằng sigmoid trên điểm ngoài mẫu |
-| `b4` | B4 XGBoost | Chọn số cây bằng early stopping |
-| `b5` | B5 LSTM | Code ở `regime/model_lstm.py` |
+| Baseline | Không tune | Grid gốc (Phụ lục C) | Đã tune lại |
+|---|---|---|---|
+| B0 | `b0maj` Majority (mức sàn log-loss)<br>`b0pers` Persistence (mức sàn DA)<br>`b0rev` Đảo chiều (chiều chọn trên train) | | |
+| B1 Logistic Regression | | `lr`<br>`lrfs` (+ chọn đặc trưng tiến dần) | `lrt` (tune cả tập đặc trưng, C, L1/L2, class_weight; chạy bằng `lr_tuning.py`) |
+| B2 Random Forest | | `b2` | `b2t` (xem `analyses/b2_tuning/`) |
+| B3 SVM RBF | | `b3` | |
+| B4 XGBoost | | `b4` (số cây chọn bằng early stopping) | |
+| B5 LSTM | `b5` (code ở `regime/model_lstm.py`) | | |
 
 **`configs/`**: `walkforward.yaml` (lịch fold), `features_onchain.yaml` (bộ đặc trưng On-chain v1, dùng cho E1), `features_onchain_v2.yaml` (bộ v2, dùng cho E2).
 

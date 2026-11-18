@@ -40,7 +40,7 @@ import walkforward
 from data import DATE, PREDICTION_COLS, RESULTS, TARGET, load_config, load_master, make_synthetic_close_1h, \
     make_synthetic_master, read_csv_dated, verify_freeze, write_csv
 from features import build_dataset
-from models import RULES, load_model
+from models import RULES, load_model, run_rule
 from walkforward import make_folds, run_walkforward
 
 CONFIGS = ("ohlcv", "ohlcv_onchain")
@@ -105,7 +105,7 @@ def run_e1(data, feature_sets, model_names, folds, wf_cfg, pred_dir, log=print,
     for name in model_names:
         for config in CONFIGS:
             if name in RULES:
-                p = RULES[name](data, folds)
+                p = run_rule(name, data, folds)
             elif name == LSTM:
                 p = run_lstm_seeds(data, feature_sets[config], folds, Path(pred_dir) / f"{LSTM}_seeds", config,
                                    regime_map)

@@ -1,5 +1,7 @@
 # B5 LSTM (Ngân, task 2.12; code regime/model_lstm.py). Không qua GridSearchCV:
 # early stopping trên 20% cuối cửa sổ train. Chạy mỗi seed một lần; b5_{config}.csv là p̂ trung bình các seed.
+baseline: B5
+tuning: none  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
 seeds: [42, 43, 44]
 params:
   lookback: 30

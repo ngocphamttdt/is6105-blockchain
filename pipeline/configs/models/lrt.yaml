@@ -1,0 +1,31 @@
+# B1t Logistic Regression tune đầy đủ (Vi, góp ý 3) – bản đã tune lại của lr.yaml. Chạy bằng pipeline/src/lr_tuning.py, KHÔNG qua run_all.py:
+# ngoài tham số mô hình còn tune cả tập đặc trưng, nên không đi qua GridSearchCV chung của walkforward.py.
+#   python pipeline/src/lr_tuning.py --stage run    (OHLCV, hai tiêu chí)
+#   python pipeline/src/lr_tuning.py --stage e1     (E1: mỗi tập ứng viên + 33 đặc trưng On-chain, tiêu chí log-loss)
+# Mô hình: ElasticNetLR (lr_tuning.py), giải tất định bằng L-BFGS-B. Winsorize clip_q / 1 − clip_q + StandardScaler,
+# fit trong từng split. Tune trên TimeSeriesSplit(5, gap 1) trong cửa sổ train, tune lại mỗi 6 fold.
+baseline: B1
+tuning: retuned  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: lrt
+params:
+  clip_q: 0.01
+
+# Tập đặc trưng ứng viên, xếp từ đơn giản đến phức tạp: hoà điểm (10 chữ số) thì lấy tập đứng trước, rồi C nhỏ hơn.
+# "ohlcv" = 10 đặc trưng OHLCV; up_lag1 = 1[logret_lag1 > 0] (dấu return hôm nay).
+feature_sets:
+  sign: [up_lag1]
+  lag1: [logret_lag1]
+  lag1+sign: [logret_lag1, up_lag1]
+  ohlcv10: [ohlcv]
+  ohlcv10+sign: [ohlcv, up_lag1]
+
+# 10 × 3 × 2 = 60 tổ hợp mỗi tập, × 5 tập = 300. Số mũ phải có dấu chấm (1.0e-4) để YAML đọc thành số thực.
+param_grid:
+  C: [1.0e-4, 3.0e-4, 1.0e-3, 3.0e-3, 1.0e-2, 3.0e-2, 0.1, 0.3, 1, 10]
+  l1_ratio: [0.0, 0.5, 1.0]        # 0: L2, 0,5: elastic-net, 1: L1
+  class_weight: [null, balanced]
+
+# Tiêu chí chọn (tên: scoring của sklearn). logloss là tiêu chí chính; acc là phân tích độ nhạy.
+criteria:
+  logloss: neg_log_loss
+  acc: accuracy

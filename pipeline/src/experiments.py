@@ -33,7 +33,7 @@ from sklearn.model_selection import cross_val_score
 import stats
 from data import DATE, RESULTS, TARGET, load_config, load_master, read_csv_dated, write_csv
 from features import build_dataset, feature_groups
-from models import RULES, load_model
+from models import RULES, load_model, run_rule
 from run_all import attach_regime, load_regime_map, run_tests
 from walkforward import fold_indices, inner_cv, make_folds, make_pipeline, run_walkforward
 
@@ -148,7 +148,7 @@ def stage_e2(models, configs):
     rmap = load_regime_map()
     pred_dir = E2_DIR / "predictions"
     if not (pred_dir / "b0rev_rule.csv").exists():
-        write_csv(attach_regime(RULES["b0rev"](data, folds), rmap), pred_dir / "b0rev_rule.csv")
+        write_csv(attach_regime(run_rule("b0rev", data, folds), rmap), pred_dir / "b0rev_rule.csv")
     for name in models:
         for config in configs:
             est, grid = load_model(name)

@@ -1,4 +1,6 @@
 # B3 SVM RBF (Ngọc, task 2.11): xác suất hiệu chỉnh sigmoid trên TimeSeriesSplit trong cửa sổ train
+baseline: B3
+tuning: original_grid  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
 class: b3
 params:
   cal_splits: 3

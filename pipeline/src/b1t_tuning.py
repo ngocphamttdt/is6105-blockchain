@@ -1,5 +1,5 @@
 """
-lr_tuning.py  –  Vi: tuning đầy đủ cho baseline B1 Logistic Regression (góp ý 3: tune bằng train/validation,
+b1t_tuning.py  –  Vi: mô hình b1t (tên cũ: lrt / lr_tuned) = tuning đầy đủ cho baseline B1 Logistic Regression (góp ý 3: tune bằng train/validation,
 không chọn theo test). Không gian tìm và tiêu chí chốt TRƯỚC khi chạy.
 
 Ở mỗi lần tune (14 lần, mỗi 6 fold; cùng 82 fold walk-forward), trong cửa sổ train 730 ngày, TimeSeriesSplit(5, gap 1):
@@ -16,12 +16,12 @@ Hoà điểm (làm tròn 10 chữ số) thì lấy tổ hợp đơn giản hơn:
 
 So sánh trên test: LR E1 (lưới C cũ, 10 OHLCV), LR gate (lưới C mở rộng), hai bản tuning mới, luật đảo chiều.
 
-  python pipeline/src/lr_tuning.py --stage run       (~1 phút)
-  python pipeline/src/lr_tuning.py --stage tables
-  python pipeline/src/lr_tuning.py --stage e1        E1 với B1 tune: cấu hình E1 (v1, 33 On-chain), tiêu chí log-loss;
+  python pipeline/src/b1t_tuning.py --stage run       (~1 phút)
+  python pipeline/src/b1t_tuning.py --stage tables
+  python pipeline/src/b1t_tuning.py --stage e1        E1 với B1 tune: cấu hình E1 (v1, 33 On-chain), tiêu chí log-loss;
                                                           +On-chain = mỗi tập ứng viên + 33 đặc trưng On-chain
-Output: results/lr_tuning/{predictions,log,tables}/, figures/fig_lr_tuning.png;
-        results/lr_tuning/e1/{ohlcv,ohlcv_onchain}/{predictions/lr_{config}.csv, log/}
+Output: results/b1t/{predictions/b1t_{logloss,acc}.csv, log, tables/b1t_*.csv}, figures/fig_b1t_tuning.png;
+        results/b1t/e1/{ohlcv,ohlcv_onchain}/{predictions/b1t_{config}.csv, log/}
 """
 import argparse
 import sys
@@ -45,8 +45,8 @@ from rules30 import OUT as R30, score
 from run_all import attach_regime, load_regime_map
 from walkforward import fold_indices, inner_cv, make_pipeline
 
-OUT = RESULTS / "lr_tuning"
-CFG = load_config("models/lrt.yaml")          # tập đặc trưng, grid, tiêu chí: chốt trong file config
+OUT = RESULTS / "b1t"
+CFG = load_config("models/b1t.yaml")          # tập đặc trưng, grid, tiêu chí: chốt trong file config
 GRID = CFG["param_grid"]
 CRITERIA = CFG["criteria"]
 CLIP_Q = CFG["params"]["clip_q"]
@@ -148,7 +148,7 @@ def stage_run(fe="features_onchain_v2.yaml", onchain=False, out_dir=OUT, criteri
     if onchain:
         oc = [c for c in sets_["ohlcv_onchain"] if c not in sets_["ohlcv"]]
         sets = {f"{k}+oc": v + oc for k, v in sets.items()}
-    names = names or {c: f"lr_tuned_{c}" for c in criteria}
+    names = names or {c: f"b1t_{c}" for c in criteria}
     all_cols = sorted({c for v in sets.values() for c in v})
     rmap = load_regime_map()
     out = {c: [] for c in criteria}
@@ -205,11 +205,11 @@ def full_metrics(p, rule=False):
 
 def tables():
     rev = read_csv_dated(R30 / "predictions" / "rev1.csv")
-    old = read_csv_dated(E2_DIR / "predictions" / "lr_ohlcv.csv")
+    old = read_csv_dated(E2_DIR / "predictions" / "b1_ohlcv.csv")
     cands = {"B1 cũ: 10 OHLCV, C ∈ {0,01..10}, L2": (old, False),
-             "B1 lưới C mở rộng (gate): 10 OHLCV, C ∈ {1e-4..1}, L2": (read_csv_dated(RESULTS / "gate" / "baseline" / "lr.csv"), False),
-             "B1 tune đầy đủ, chọn theo log-loss": (read_csv_dated(OUT / "predictions" / "lr_tuned_logloss.csv"), False),
-             "B1 tune đầy đủ, chọn theo accuracy": (read_csv_dated(OUT / "predictions" / "lr_tuned_acc.csv"), False),
+             "B1 lưới C mở rộng (gate): 10 OHLCV, C ∈ {1e-4..1}, L2": (read_csv_dated(RESULTS / "gate" / "baseline" / "b1.csv"), False),
+             "B1 tune đầy đủ, chọn theo log-loss": (read_csv_dated(OUT / "predictions" / "b1t_logloss.csv"), False),
+             "B1 tune đầy đủ, chọn theo accuracy": (read_csv_dated(OUT / "predictions" / "b1t_acc.csv"), False),
              "Luật đảo chiều (b0rev)": (rev, True)}
     rows = []
     for lab, (p, rule) in cands.items():
@@ -242,7 +242,7 @@ def tables():
         for y_, q in p.groupby(p[DATE].dt.year):
             yr.append({"method": lab, "year": int(y_), "accuracy": stats.row_hit(q.y_true, q.p_hat).mean()})
     yr = pd.DataFrame(yr)
-    for k, v in {"lr_tuning_summary": t, "lr_tuning_choices": ch, "lr_tuning_by_year": yr}.items():
+    for k, v in {"b1t_summary": t, "b1t_choices": ch, "b1t_by_year": yr}.items():
         write_csv(v, OUT / "tables" / f"{k}.csv")
     return t, ch, yr
 
@@ -289,7 +289,7 @@ def figure(t, yr):
     ax.legend(loc="lower left", frameon=False, fontsize=8)
     ax.set_title("Theo năm", fontsize=9)
     fig.tight_layout()
-    out = RESULTS / "figures" / "fig_lr_tuning.png"
+    out = RESULTS / "figures" / "fig_b1t_tuning.png"
     fig.savefig(out, dpi=200, facecolor=surf)
     plt.close(fig)
     return out
@@ -301,12 +301,12 @@ def _tests():
     assert pick(res, "logloss")["C"] == 1.0                      # hoà log-loss → tập đơn giản hơn (rank 0)
     assert pick(res, "acc")["C"] == 0.01                          # hoà accuracy → tập rank 0, rồi C nhỏ hơn
     assert len(GRID["C"]) * len(GRID["l1_ratio"]) * len(GRID["class_weight"]) * 5 == 300
-    # Config lrt.yaml: tập đặc trưng đúng thứ tự, "ohlcv" được thay bằng cột OHLCV, cột dấu là up_lag1 của hybrid
+    # Config b1t.yaml: tập đặc trưng đúng thứ tự, "ohlcv" được thay bằng cột OHLCV, cột dấu là up_lag1 của hybrid
     o = ["a", "b"]
     assert feature_sets(o) == {"sign": [SIGN], "lag1": ["logret_lag1"], "lag1+sign": ["logret_lag1", SIGN],
                                "ohlcv10": o, "ohlcv10+sign": o + [SIGN]}
     assert all(isinstance(c, (int, float)) for c in GRID["C"]) and GRID["class_weight"] == [None, "balanced"]
-    print("Tất cả test lr_tuning đều PASS")
+    print("Tất cả test b1t_tuning đều PASS")
 
 
 def main(argv=None):
@@ -319,7 +319,7 @@ def main(argv=None):
     elif args.stage == "e1":
         for cfg in ("ohlcv", "ohlcv_onchain"):
             stage_run("features_onchain.yaml", onchain=cfg == "ohlcv_onchain", out_dir=OUT / "e1" / cfg,
-                      criteria=("logloss",), names={"logloss": f"lr_{cfg}"})
+                      criteria=("logloss",), names={"logloss": f"b1t_{cfg}"})
     elif args.stage == "tables":
         pd.set_option("display.width", 300)
         t, ch, yr = tables()

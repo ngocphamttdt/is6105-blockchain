@@ -4,7 +4,7 @@
 
 **Goal:** Một script chạy B0, LR, SVM RBF, RF, LSTM trên cùng cách chia train/val/test, tune trên validation, test 1 lần, xem trực tiếp dự báo, ra một báo cáo so sánh.
 
-**Architecture:** `analyses/simple_split/src/simple_split.py` dùng lại `baseline_check` (dữ liệu, chia, metric, luật B0), estimator của từng người (`lr_tuning.ElasticNetLR`, `models.CalibratedSVC`, `RandomForestClassifier`, `lstm_tuning.fit_predict`). Một hàm tune chung nhận "hàm học → p̂" cho mỗi tổ hợp, nên mọi mô hình đi qua đúng một vòng chọn tham số.
+**Architecture:** `analyses/simple_split/src/simple_split.py` dùng lại `baseline_check` (dữ liệu, chia, metric, luật B0), estimator của từng người (`b1t_tuning.ElasticNetLR`, `models.CalibratedSVC`, `RandomForestClassifier`, `lstm_tuning.fit_predict`). Một hàm tune chung nhận "hàm học → p̂" cho mỗi tổ hợp, nên mọi mô hình đi qua đúng một vòng chọn tham số.
 
 **Tech Stack:** Python 3, pandas, numpy, scikit-learn, scipy, torch (LSTM), tabulate. Test theo quy ước của repo: hàm `_tests()` gọi bằng `--test` (repo không dùng pytest).
 
@@ -17,7 +17,7 @@
 - Chọn tham số: min log-loss validation, làm tròn 4 chữ số, hoà thì tổ hợp đứng trước trong grid (grid xếp từ đơn giản đến phức tạp).
 - Mô hình cuối học trên train + val; test chỉ được đọc ở bước chấm cuối.
 - Seed: RF và LSTM dùng `SEEDS = [42, 43, 44]`, p̂ trung bình 3 seed ở mọi lần học. B0, LR, SVM không seed.
-- Grid: LR = `lr_tuning.GRID` × `lr_tuning.feature_sets(FEATURES_10)` + winsorize `CLIP_Q`; SVM = `{"C": [0.01, 0.1, 1, 10, 100], "gamma": [0.001, 0.003, 0.01, 0.03, 0.1, 0.3]}`; RF = `b2t.yaml` param_grid, 500 cây, max_depth None; LSTM = `lstm_tuning.GRID`.
+- Grid: LR = `b1t_tuning.GRID` × `b1t_tuning.feature_sets(FEATURES_10)` + winsorize `CLIP_Q`; SVM = `{"C": [0.01, 0.1, 1, 10, 100], "gamma": [0.001, 0.003, 0.01, 0.03, 0.1, 0.3]}`; RF = `b2t.yaml` param_grid, 500 cây, max_depth None; LSTM = `lstm_tuning.GRID`.
 - "Trước tune": LR `ElasticNetLR(C=1, l1_ratio=0)` trên 10 đặc trưng, không winsorize; SVM `CalibratedSVC(C=1, gamma="scale")`; RF `RandomForestClassifier(n_estimators=500)`; LSTM `lstm_tuning.DEFAULT`.
 - Không sửa file của người khác; chỉ tạo `analyses/simple_split/`.
 

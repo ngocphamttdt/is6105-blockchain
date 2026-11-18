@@ -1,12 +1,12 @@
-# B1t Logistic Regression tune đầy đủ (Vi, góp ý 3) – bản đã tune lại của lr.yaml. Chạy bằng pipeline/src/lr_tuning.py, KHÔNG qua run_all.py:
+# B1t Logistic Regression tune đầy đủ (Vi, góp ý 3) – bản đã tune lại của b1.yaml (tên cũ: lrt / lr_tuned). Chạy bằng pipeline/src/b1t_tuning.py, KHÔNG qua run_all.py:
 # ngoài tham số mô hình còn tune cả tập đặc trưng, nên không đi qua GridSearchCV chung của walkforward.py.
-#   python pipeline/src/lr_tuning.py --stage run    (OHLCV, hai tiêu chí)
-#   python pipeline/src/lr_tuning.py --stage e1     (E1: mỗi tập ứng viên + 33 đặc trưng On-chain, tiêu chí log-loss)
-# Mô hình: ElasticNetLR (lr_tuning.py), giải tất định bằng L-BFGS-B. Winsorize clip_q / 1 − clip_q + StandardScaler,
+#   python pipeline/src/b1t_tuning.py --stage run    (OHLCV, hai tiêu chí)
+#   python pipeline/src/b1t_tuning.py --stage e1     (E1: mỗi tập ứng viên + 33 đặc trưng On-chain, tiêu chí log-loss)
+# Mô hình: ElasticNetLR (b1t_tuning.py), giải tất định bằng L-BFGS-B. Winsorize clip_q / 1 − clip_q + StandardScaler,
 # fit trong từng split. Tune trên TimeSeriesSplit(5, gap 1) trong cửa sổ train, tune lại mỗi 6 fold.
 baseline: B1
 tuning: retuned  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
-class: lrt
+class: logreg_elasticnet
 params:
   clip_q: 0.01
 

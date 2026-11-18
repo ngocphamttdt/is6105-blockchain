@@ -7,7 +7,7 @@ Phụ trách: Trâm. **Kết quả: `reports/up_today_report.md`** (đọc phầ
 `features/src/features_ohlcv.py`:
 
 - Thêm cột **`up_today`** = 1 nếu giá đóng cửa ngày t cao hơn ngày t−1, ngược lại 0 (ngày đầu chuỗi là NaN).
-- `FEATURES` = 10 đặc trưng ban đầu + `up_today` (đặt cuối để `lrfs` vẫn bắt đầu từ `logret_lag1`).
+- `FEATURES` = 10 đặc trưng ban đầu + `up_today` (đặt cuối để `b1fs` vẫn bắt đầu từ `logret_lag1`).
 - `FEATURES_10` giữ bộ 10 đặc trưng cũ. `baseline_check` chuyển sang dùng `FEATURES_10` để báo cáo cũ tái tạo được (đã chạy lại, kết quả không đổi).
 - `data/features_ohlcv.csv` tạo lại với 11 cột.
 
@@ -17,10 +17,10 @@ Phụ trách: Trâm. **Kết quả: `reports/up_today_report.md`** (đọc phầ
 
 ## So sánh đã chạy
 
-`src/compare_up_today.py`: `lr`, `lrfs`, `b3` theo đúng config trong `pipeline/configs/models/`, 82 fold, tune bằng inner CV trong cửa sổ train. Mỗi mô hình chạy 4 lần: {10, 11 đặc trưng} × {OHLCV-only, OHLCV + On-chain}. So với luật đảo chiều `b0rev`.
+`src/compare_up_today.py`: `b1`, `b1fs`, `b3` theo đúng config trong `pipeline/configs/models/`, 82 fold, tune bằng inner CV trong cửa sổ train. Mỗi mô hình chạy 4 lần: {10, 11 đặc trưng} × {OHLCV-only, OHLCV + On-chain}. So với luật đảo chiều `b0rev`.
 
 ```
-python analyses/up_today/src/compare_up_today.py            # chạy mô hình rồi viết báo cáo (lrfs chậm, ~15–20 phút)
+python analyses/up_today/src/compare_up_today.py            # chạy mô hình rồi viết báo cáo (b1fs chậm, ~15–20 phút)
 python analyses/up_today/src/compare_up_today.py --report   # chỉ dựng lại báo cáo
 ```
 
@@ -32,6 +32,6 @@ analyses/up_today/
 ├── results/
 │   ├── predictions/{model}__{f10|f11}_{config}.csv, b0rev.csv
 │   └── tables/ metrics.csv, delta_up_today.csv, delta_onchain.csv, by_year_ohlcv.csv,
-│               fit_log.csv (tham số chọn mỗi fold, cột lrfs giữ lại)
+│               fit_log.csv (tham số chọn mỗi fold, cột b1fs giữ lại)
 └── reports/up_today_report.md, figures/da_by_year.png
 ```

@@ -7,7 +7,7 @@
 # - max_samples 0,5: mỗi cây chỉ thấy nửa cửa sổ train, cây ít tương quan hơn.
 baseline: B2
 tuning: retuned  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
-class: b2
+class: random_forest
 params:
   n_estimators: 500
   max_depth: null

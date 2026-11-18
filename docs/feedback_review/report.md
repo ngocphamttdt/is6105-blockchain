@@ -8,7 +8,7 @@ Branch `vi/feedback-3-6` (tách từ `vi/baseline-reversal-metrics-check`). Mọ
 |---|---|---|---|---|
 | 1 | Kiểm tra data, EDA, baseline, xem dự báo đúng/sai | ✅ | ✅ | `analyses/baseline_check/`, `eda_pre_training/` (branch `feat/test-eda`) |
 | 2 | Metric đúng định nghĩa, đối chiếu ví dụ | ✅ | ✅ | `analyses/metrics_check/` |
-| 3 | Ghi rõ tuning, trước/sau tuning | ⚠️ | ✅ Tuning B1–B4 (3a) + tuning đầy đủ B1: 51,48% → 52,59%, qua cổng baseline (3b) | `pipeline/results/tuning/`, `results/lr_tuning/` |
+| 3 | Ghi rõ tuning, trước/sau tuning | ⚠️ | ✅ Tuning B1–B4 (3a) + tuning đầy đủ B1: 51,48% → 52,59%, qua cổng baseline (3b) | `pipeline/results/tuning/`, `results/b1t/` |
 | 4 | Baseline ổn định rồi mới thêm On-chain; ablation theo nhóm | ❌ | ✅ Có cổng kiểm tra baseline (tiêu chí chốt trước), stepwise On-chain trên validation, ablation. **Kết quả: B1–B4 với 10 feature OHLCV không qua cổng; chỉ B1 sau tuning đầy đủ (mục 3b) qua cổng. Stepwise bỏ qua On-chain ở 9–13/14 lần tune** | `pipeline/src/gate.py`, `results/gate/`, `results/e2/` |
 | 5 | Thời điểm Flows có sẵn; đối chứng bỏ Flows | ⚠️ | ✅ | `data/raw/vi_ohlcv_flows/reports/flows_vintage.md`, cấu hình `no_flows` |
 | 6 | Regime tái lập được, đúng nghĩa, rồi mới trả lời RQ3 | ⚠️ | ✅ | `regime/run_regime.py`, `reports/regime_check.md`, `results/e3/` |
@@ -77,7 +77,7 @@ Phần này có hai bước:
 
 ### 3b. Tuning đầy đủ cho B1 (Logistic Regression)
 
-Code: `pipeline/src/lr_tuning.py`. Kết quả: `pipeline/results/lr_tuning/`.
+Code: `pipeline/src/b1t_tuning.py`. Kết quả: `pipeline/results/b1t/`.
 
 #### Mục tiêu
 
@@ -121,7 +121,7 @@ Winsorize 1%/99% → StandardScaler → LogisticRegression(solver = "saga", max_
 
 #### Tham số được chọn
 
-Từ `tables/lr_tuning_choices.csv`; chi tiết từng lần ở `log/chosen.csv`:
+Từ `tables/b1t_choices.csv`; chi tiết từng lần ở `log/chosen.csv`:
 
 | | Chọn theo log-loss | Chọn theo accuracy |
 |---|---|---|
@@ -141,9 +141,9 @@ Từ `tables/lr_tuning_choices.csv`; chi tiết từng lần ở `log/chosen.csv
 
 #### Kết quả trước và sau tuning trên test
 
-![Tuning B1](../../pipeline/results/figures/fig_lr_tuning.png)
+![Tuning B1](../../pipeline/results/figures/fig_b1t_tuning.png)
 
-Từ `tables/lr_tuning_summary.csv`. "B1 trước tuning" là B1 của E2: 10 OHLCV, winsorize, lưới C {0,01 … 10}, L2. Cả bốn bản dùng cùng 2.434 ngày test.
+Từ `tables/b1t_summary.csv`. "B1 trước tuning" là B1 của E2: 10 OHLCV, winsorize, lưới C {0,01 … 10}, L2. Cả bốn bản dùng cùng 2.434 ngày test.
 
 | B1 | Accuracy | F1 lớp tăng | F1 lớp giảm | F1 macro | MCC | Log-loss | AUC | % đoán tăng |
 |---|---|---|---|---|---|---|---|---|
@@ -202,16 +202,16 @@ B1 sau tuning là **baseline OHLCV đầu tiên qua cổng**. Có hai lưu ý:
 
 > Sau khi tune trên validation (300 tổ hợp × 14 lần tune; tập feature, C, kiểu regularization, cân bằng lớp), B1 Logistic Regression đạt accuracy 52,59%, F1 macro 0,526 và log-loss 0,6921 trên 2.434 ngày test walk-forward. Kết quả này cao hơn 50% có ý nghĩa thống kê (p = 0,005) và qua được cổng "baseline ổn định". Tuy nhiên, B1 chưa vượt có ý nghĩa baseline đoán theo lớp nhiều hơn (+2,5 điểm, p = 0,09), và tương đương luật đảo chiều 1 ngày (−0,7 điểm, không có ý nghĩa). Tuning chọn gần như chỉ dùng return hôm nay cùng cân bằng lớp; tín hiệu B1 học được là hiệu ứng đảo chiều ngắn hạn. B1 sau tuning được dùng làm baseline OHLCV để đo giá trị bổ sung của On-chain (RQ1).
 
-**File kết quả** (trong `pipeline/results/lr_tuning/`):
+**File kết quả** (trong `pipeline/results/b1t/`):
 
 | File | Nội dung |
 |---|---|
 | `log/chosen.csv` | Tham số được chọn ở 14 lần tune, theo từng tiêu chí |
 | `log/grid/foldXX.csv` | Điểm validation của cả 300 tổ hợp ở mỗi lần tune |
-| `predictions/lr_tuned_{logloss,acc}.csv` | Dự báo trên test |
-| `tables/lr_tuning_summary.csv` | Metric và Δ trên test |
-| `tables/lr_tuning_choices.csv` | Tổng hợp tham số được chọn |
-| `tables/lr_tuning_by_year.csv` | Accuracy theo năm |
+| `predictions/b1t_{logloss,acc}.csv` | Dự báo trên test |
+| `tables/b1t_summary.csv` | Metric và Δ trên test |
+| `tables/b1t_choices.csv` | Tổng hợp tham số được chọn |
+| `tables/b1t_by_year.csv` | Accuracy theo năm |
 
 ---
 
@@ -507,8 +507,8 @@ python pipeline/src/gate.py --stage tables
 python pipeline/src/rules30.py                             # luật 30 ngày + bảng accuracy/F1 cả chuỗi (cần gate xong)
 python pipeline/src/hybrid.py --stage a                    # luật làm feature (~10 phút)
 python pipeline/src/hybrid.py --stage tables               # luật + mô hình ghi đè, luật On-chain cực trị
-python pipeline/src/lr_tuning.py --stage run               # tuning đầy đủ B1 (~15 phút)
-python pipeline/src/lr_tuning.py --stage tables
+python pipeline/src/b1t_tuning.py --stage run               # tuning đầy đủ B1 (~15 phút)
+python pipeline/src/b1t_tuning.py --stage tables
 python regime/run_regime.py                     # góp ý 6: tái lập HMM, regime xu hướng
 python pipeline/src/experiments.py --stage e3
 cd data/raw/vi_ohlcv_flows && python src/flows_vintage.py      # góp ý 5: gọi API CoinMetrics

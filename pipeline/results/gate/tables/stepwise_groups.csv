@@ -1,5 +1,5 @@
 model,n_tunes,n_no_group,n_activity,n_flows,n_mining,n_valuation,selections,inner_gain_mean
-lr,14,13,0,0,1,1,(không)×13; Valuation+Mining×1,0.0002879271506962544
+b1,14,13,0,0,1,1,(không)×13; Valuation+Mining×1,0.0002879271506962544
 b2,14,12,0,1,1,0,(không)×12; Mining×1; Flows×1,0.0003077699288351808
 b3,14,9,1,1,1,2,(không)×9; Valuation×2; Mining×1; Activity×1; Flows×1,0.0005412100564603743
 b4,14,10,2,1,1,0,(không)×10; Activity×2; Flows×1; Mining×1,0.0003940922873360723

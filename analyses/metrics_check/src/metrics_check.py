@@ -37,7 +37,7 @@ from backtest import run_backtest  # noqa: E402
 
 PRED_DIR = RESULTS / "predictions"
 TABLE = RESULTS / "tables/e1_delta_draft.csv"
-EXAMPLE = ("lr", "ohlcv")                     # B1 Logistic Regression chỉ OHLCV
+EXAMPLE = ("b1", "ohlcv")                     # B1 Logistic Regression chỉ OHLCV
 EPS = np.finfo(float).eps                     # sklearn log_loss cắt p̂ vào [eps, 1 − eps]
 
 
@@ -188,7 +188,7 @@ def main():
            "khớp cột `delta` của `e1_delta_draft.csv` cho mọi mô hình và metric. ΔDA còn tách được thành số ngày chỉ một "
            "bên đúng: ΔDA = (chỉ +On-chain đúng − chỉ OHLCV đúng) / N. Đây cũng là hai số mà kiểm định McNemar dùng.", "",
            md_table(dt, 4), "",
-           "Đọc dòng `lr`: thêm On-chain làm đúng thêm ở một số ngày nhưng sai ở gần chừng ấy ngày khác; ΔDA chỉ là "
+           "Đọc dòng `b1`: thêm On-chain làm đúng thêm ở một số ngày nhưng sai ở gần chừng ấy ngày khác; ΔDA chỉ là "
            "hiệu của hai con số lớn gần bằng nhau, nên dễ đổi dấu khi đổi mô hình hoặc giai đoạn.", ""]
     summary.append(("Δ có đúng dấu, đúng cách tính?",
                     "Đúng: tính lại từ hai file khớp bảng; ΔDA = (số ngày chỉ +On-chain đúng − số ngày chỉ OHLCV đúng)/N"))

@@ -3,7 +3,7 @@ run_all.py  –  Task 2.8 (Ngọc): chạy thí nghiệm bằng một lệnh. M�
 
   python pipeline/src/run_all.py --test                                    # chỉ chạy test của mọi file
   python pipeline/src/run_all.py --stage data                              # kiểm freeze, đặc trưng, fold trên dữ liệu thật
-  python pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b3    # E1: đủ 82 fold x 2 cấu hình
+  python pipeline/src/run_all.py --stage e1 --models b1 b0pers b0maj b3    # E1: đủ 82 fold x 2 cấu hình
   python pipeline/src/run_all.py --stage e1 --models b3 --every 10         # chạy thử 1/10 số fold
   python pipeline/src/run_all.py --stage regime                            # ghép lại regime vào mọi predictions
   python pipeline/src/run_all.py --stage tables                            # tính lại các bảng từ predictions
@@ -263,7 +263,7 @@ def _tests():
     folds = make_folds(data.loc[data[TARGET].notna(), DATE], **wf_cfg)[::40]
     with tempfile.TemporaryDirectory() as tmp:
         # 1) E1 chạy hết trên dữ liệu giả; CSV đọc lại khớp y nguyên; hai cấu hình cùng ngày test; B0 giống nhau
-        preds = run_e1(data, sets, ["lr", "b0pers", "b0maj"], folds, wf_cfg, tmp, log=lambda _: None)
+        preds = run_e1(data, sets, ["b1", "b0pers", "b0maj"], folds, wf_cfg, tmp, log=lambda _: None)
         back = load_predictions(tmp)
         assert set(back) == set(preds)
         for k, p in preds.items():
@@ -276,7 +276,7 @@ def _tests():
         t = table.set_index(["model", "metric"])["ohlcv"]
         assert np.isnan(t[("b0pers", "log_loss")]) and np.isnan(t[("b0pers", "brier")])
         assert np.isnan(t[("b0maj", "auc")]) and not np.isnan(t[("b0maj", "log_loss")])
-        assert t.loc["lr"].notna().all()
+        assert t.loc["b1"].notna().all()
         # 2) Bảng Δ bỏ qua file không phải cấu hình E1 (vd. ablation sau này)
         (Path(tmp) / "b4_ohlcv_plus_flows.csv").write_text("x")
         assert set(load_predictions(tmp)) == set(preds)
@@ -291,15 +291,15 @@ def _tests():
             assert s.log_loss.isna().all() == (name in RULES)
         # 2c) So với luật đảo chiều: chỉ mô hình có học; ΔDA gộp và McNemar khớp tính tay; luật so với chính nó = 0
         vs = vs_reversal_table(back)
-        assert set(vs.model) == {"lr"}
+        assert set(vs.model) == {"b1"}
         row = vs[vs.config == "ohlcv"].iloc[0]
-        a, b = _hits(back[("b0rev", "ohlcv")]), _hits(back[("lr", "ohlcv")])
+        a, b = _hits(back[("b0rev", "ohlcv")]), _hits(back[("b1", "ohlcv")])
         np.testing.assert_allclose(row.d_da, b.mean() - a.mean())
         assert row.only_model_right - row.only_rule_right == int(b.sum() - a.sum())
         assert vs_reversal_table({k: v for k, v in back.items() if k[0] != "b0rev"}).empty
     # 3) Hai cấu hình khác ngày test thì không so cặp
-    p = preds[("lr", "ohlcv")]
-    data_mod._raises(lambda: delta_table({("lr", "ohlcv"): p, ("lr", "ohlcv_onchain"): p.iloc[1:]}), "không cùng")
+    p = preds[("b1", "ohlcv")]
+    data_mod._raises(lambda: delta_table({("b1", "ohlcv"): p, ("b1", "ohlcv_onchain"): p.iloc[1:]}), "không cùng")
 
     # 4) Ghép regime theo date + fold, giữ nguyên thứ tự và p̂; thiếu regime thì báo lỗi
     rmap = p[[DATE, "fold"]].assign(regime=np.where(np.arange(len(p)) % 2, "Bull", "Bear")).iloc[::-1]
@@ -332,7 +332,7 @@ def run_tests():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--stage", choices=["data", "e0", "e1", "regime", "tables"])
-    ap.add_argument("--models", nargs="+", default=["lr"])
+    ap.add_argument("--models", nargs="+", default=["b1"])
     ap.add_argument("--every", type=int, default=1, help="chỉ chạy mỗi k fold (để chạy thử)")
     ap.add_argument("--test", action="store_true", help="chỉ chạy test")
     args = ap.parse_args(argv)

@@ -46,7 +46,7 @@ Ngày test có y = 1 (giá ngày mai tăng) chiếm 50.90%. Mọi metric dùng n
 
 ## Phần 3. Tính tay trên ngày thật
 
-File `lr_ohlcv.csv` (B1 Logistic Regression, chỉ OHLCV). 8 ngày: 2 ngày cho mỗi tổ hợp (giảm/tăng) × (sai/đúng).
+File `b1_ohlcv.csv` (B1 Logistic Regression, chỉ OHLCV). 8 ngày: 2 ngày cho mỗi tổ hợp (giảm/tăng) × (sai/đúng).
 
 | date       |   y |   p_hat |   dự báo (p̂ > 0,5) |   đúng |   −log p(y) |   (p̂ − y)² |
 |:-----------|----:|--------:|-------------------:|-------:|------------:|-----------:|
@@ -85,10 +85,10 @@ Trên đủ 2434 ngày, công thức tay, hàm `run_all.metrics` và bảng `e1_
 | b3      |        -0.3287 |              255 |                  247 |           -0.3287 |      -0.005  |
 | b4      |        -1.479  |              308 |                  272 |           -1.479  |      -0.0015 |
 | b5      |        -0.1643 |              431 |                  427 |           -0.1643 |       0.0009 |
-| lr      |         0.7806 |              327 |                  346 |            0.7806 |       0.0054 |
-| lrfs    |         0.4519 |              297 |                  308 |            0.4519 |       0.0036 |
+| b1      |         0.7806 |              327 |                  346 |            0.7806 |       0.0054 |
+| b1fs    |         0.4519 |              297 |                  308 |            0.4519 |       0.0036 |
 
-Đọc dòng `lr`: thêm On-chain làm đúng thêm ở một số ngày nhưng sai ở gần chừng ấy ngày khác; ΔDA chỉ là hiệu của hai con số lớn gần bằng nhau, nên dễ đổi dấu khi đổi mô hình hoặc giai đoạn.
+Đọc dòng `b1`: thêm On-chain làm đúng thêm ở một số ngày nhưng sai ở gần chừng ấy ngày khác; ΔDA chỉ là hiệu của hai con số lớn gần bằng nhau, nên dễ đổi dấu khi đổi mô hình hoặc giai đoạn.
 
 ## Phần 5. Ô nào trong bảng không có nghĩa
 

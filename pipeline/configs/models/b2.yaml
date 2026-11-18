@@ -1,7 +1,7 @@
 # B2 Random Forest (Trâm sở hữu, task 2.6; bản chạy thử của Ngọc): grid số cây, độ sâu, min_samples_leaf
 baseline: B2
 tuning: original_grid  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
-class: b2
+class: random_forest
 params:
   n_jobs: -1
   random_state: 0

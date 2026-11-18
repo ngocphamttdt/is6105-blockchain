@@ -18,8 +18,8 @@ không dùng ngày test. Tiêu chí và lưới dưới đây chốt TRƯỚC kh
             log-loss inner thấp nhất; chỉ thêm nếu giảm > TOL; dừng khi không nhóm nào đạt. Tập đặc trưng được chọn
             dùng cho 6 fold tiếp theo. So test với baseline cùng mô hình (Δ, CI bootstrap khối, McNemar, DM, Holm).
 
-  python pipeline/src/gate.py --stage gate [--models lr b2]
-  python pipeline/src/gate.py --stage stepwise [--models lr b2]
+  python pipeline/src/gate.py --stage gate [--models b1 b2]
+  python pipeline/src/gate.py --stage stepwise [--models b1 b2]
   python pipeline/src/gate.py --stage tables
 
 Output: results/gate/{baseline,stepwise}/{model}.csv (dự báo), results/gate/log/{gate,stepwise}_{model}.csv (mỗi lần
@@ -43,7 +43,7 @@ from walkforward import PREDICTION_COLS, fold_indices, inner_cv, make_pipeline, 
 
 GATE_DIR = RESULTS / "gate"
 GRID_WIDE = {
-    "lr": {"C": [1e-4, 1e-3, 1e-2, 0.1, 1]},
+    "b1": {"C": [1e-4, 1e-3, 1e-2, 0.1, 1]},
     "b2": {"n_estimators": [300], "max_depth": [2, 3, 6], "min_samples_leaf": [50, 100, 200]},
     "b3": {"C": [0.01, 0.1, 1, 10], "gamma": [1e-4, 1e-3, 1e-2, 0.1]},
     "b4": {"learning_rate": [0.005, 0.01, 0.05], "max_depth": [1, 2, 3, 4]},
@@ -214,7 +214,7 @@ def figure():
     import matplotlib.pyplot as plt
     plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False})
     ink, rule_c, muted, grid_c, surf = "#2a78d6", "#eb6834", "#52514e", "#e6e5e1", "#fcfcfb"
-    names = {"lr": "B1 Logistic Regression", "b2": "B2 Random Forest", "b3": "B3 SVM", "b4": "B4 XGBoost"}
+    names = {"b1": "B1 Logistic Regression", "b2": "B2 Random Forest", "b3": "B3 SVM", "b4": "B4 XGBoost"}
     yr = pd.read_csv(GATE_DIR / "tables" / "gate_by_year.csv")
     models = [m for m in ML if m in set(yr.model)]
     fig, axs = plt.subplots(1, len(models), figsize=(3.2 * len(models), 3.0), sharey=True, facecolor=surf)
@@ -245,8 +245,8 @@ def figure():
 def _tests():
     wf = {"inner_splits": 5, "gap_days": 1}
     # 1) at_edge: chỉ tính tham số có ≥ 2 giá trị
-    assert at_edge(1e-4, GRID_WIDE["lr"]["C"]) and at_edge(1, GRID_WIDE["lr"]["C"])
-    assert not at_edge(1e-2, GRID_WIDE["lr"]["C"]) and not at_edge(300, [300])
+    assert at_edge(1e-4, GRID_WIDE["b1"]["C"]) and at_edge(1, GRID_WIDE["b1"]["C"])
+    assert not at_edge(1e-2, GRID_WIDE["b1"]["C"]) and not at_edge(300, [300])
 
     # 2) B0 inner = log-loss của tỷ lệ train; với y cân bằng ≈ ln 2
     rng = np.random.default_rng(0)
@@ -258,7 +258,7 @@ def _tests():
     df = pd.DataFrame({"o1": rng.normal(size=n), "noise1": rng.normal(size=n), "noise2": rng.normal(size=n),
                        "sig": rng.normal(size=n)})
     df[TARGET] = (df.sig + 0.3 * rng.normal(size=n) > 0).astype(int)
-    est, _ = load_model("lr")
+    est, _ = load_model("b1")
     chosen, path = forward_groups(est, {"C": 1.0}, df, ["o1"], {"Noise": ["noise1", "noise2"], "Signal": ["sig"]}, wf)
     assert chosen == ["Signal"] and path[0] - path[1] > 0.2, (chosen, path)
 
@@ -270,7 +270,7 @@ def _tests():
     # 5) gate_row: G1/G2 đúng ngưỡng
     log = pd.DataFrame({"chosen_C": [1e-4] * 8 + [1e-2] * 6, "inner_logloss": [0.69] * 10 + [0.70] * 4,
                         "inner_logloss_prior": [0.695] * 14})
-    r = gate_row("lr", log)
+    r = gate_row("b1", log)
     assert r["n_beats_prior"] == 10 and r["G1"] and not r["G2"] and not r["pass"]
     print("Tất cả test gate đều PASS")
 

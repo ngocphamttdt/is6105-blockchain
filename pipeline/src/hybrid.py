@@ -2,7 +2,7 @@
 hybrid.py  –  Vi: áp dụng luật (rule-based) VÀO mô hình, ba cách. Thiết kế và ngưỡng chốt trước khi chạy.
 
   A  Luật làm đặc trưng: thêm up_lag1 = 1[logret_lag1 > 0] (dấu return hôm nay, thứ luật đảo chiều dùng) vào 10
-     đặc trưng OHLCV; chạy B1–B4 như gate.py (lưới mở rộng, winsorize, tune mỗi 6 fold). Thêm "lr_sign": LR chỉ
+     đặc trưng OHLCV; chạy B1–B4 như gate.py (lưới mở rộng, winsorize, tune mỗi 6 fold). Thêm "b1sign" (tên cũ: lr_sign): LR chỉ
      dùng up_lag1, để xem mô hình có tự học lại được luật không.
   C  Luật mặc định, mô hình ghi đè: p̂ = mô hình nếu |p̂ − 0,5| > MARGIN (0,05), ngược lại p̂ = luật đảo chiều.
      Áp cho dự báo của gate (chỉ OHLCV), stepwise (+ On-chain chọn lọc) và A.
@@ -13,7 +13,7 @@ hybrid.py  –  Vi: áp dụng luật (rule-based) VÀO mô hình, ba cách. Thi
 So với luật đảo chiều rev1 (results/rules30/predictions/rev1.csv): accuracy, F1 macro, Δ (CI bootstrap khối),
 McNemar, Holm trong từng cách.
 
-  python pipeline/src/hybrid.py --stage a [--models lr b2]   (A: chạy mô hình, ~10 phút)
+  python pipeline/src/hybrid.py --stage a [--models b1 b2]   (A: chạy mô hình, ~10 phút)
   python pipeline/src/hybrid.py --stage tables                (B, C và bảng tổng)
 """
 import argparse
@@ -35,7 +35,7 @@ MARGIN, Z = 0.05, 2.0
 Z_COLS = ["cm_NetflowExNtv_z90", "cm_AdrActCnt_z90", "cm_TxCnt_z90", "bc_est_tx_vol_usd_z90",
           "cm_HashRate_z90", "cm_FeeTotNtv_z90", "puell_multiple_z90"]
 SIGN = "up_lag1"
-GRID_WIDE.setdefault("lr_sign", GRID_WIDE["lr"])
+GRID_WIDE.setdefault("b1sign", GRID_WIDE["b1"])
 
 
 def with_sign(data):
@@ -52,8 +52,8 @@ def stage_a(models):
     data = with_sign(data)
     rmap = load_regime_map()
     for name in models:
-        cols, est = (sets["ohlcv"] + [SIGN], name) if name != "lr_sign" else ([SIGN], "lr")
-        GRID_WIDE.setdefault(est, GRID_WIDE["lr"])
+        cols, est = (sets["ohlcv"] + [SIGN], name) if name != "b1sign" else ([SIGN], "b1")
+        GRID_WIDE.setdefault(est, GRID_WIDE["b1"])
         p, log = run(data, folds, est, wf, cols)
         write_csv(attach_regime(p, rmap), OUT / "a" / f"{name}.csv")
         write_csv(log, OUT / "log" / f"a_{name}.csv")
@@ -178,7 +178,7 @@ def _tests():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--stage", choices=["a", "tables", "test"], required=True)
-    ap.add_argument("--models", nargs="+", default=["lr_sign"] + ML)
+    ap.add_argument("--models", nargs="+", default=["b1sign"] + ML)
     args = ap.parse_args(argv)
     _tests()
     if args.stage == "a":

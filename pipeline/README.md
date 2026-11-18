@@ -66,7 +66,7 @@ Cần Python 3.10+ với `pandas numpy scikit-learn pyyaml matplotlib`, và thư
 ```bash
 python pipeline/src/run_all.py --test                                   # chỉ chạy test (~10 giây)
 python pipeline/src/run_all.py --stage data                             # kiểm freeze, đặc trưng, fold
-python pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b2 b3 b4 b5   # E1 đủ (~10 phút)
+python pipeline/src/run_all.py --stage e1 --models b1 b0pers b0maj b2 b3 b4 b5   # E1 đủ (~10 phút)
 python pipeline/src/run_all.py --stage e1 --models b3 --every 10        # chạy thử 1/10 số fold -> every10/
 python pipeline/src/run_all.py --stage regime                           # ghép lại regime khi regime_map.csv đổi
 python pipeline/src/run_all.py --stage tables                           # tính lại mọi bảng từ predictions đã có
@@ -76,7 +76,7 @@ python pipeline/src/walkforward.py                                      # vẽ l
 Các thí nghiệm theo góp ý 3–6 của thầy nằm trong `src/experiments.py` (đánh giá đầy đủ: `docs/feedback_review/report.md`):
 
 ```
-python pipeline/src/experiments.py --stage tuning [--models lr b3]      # góp ý 3: tham số chọn mỗi lần tune, trước/sau tuning
+python pipeline/src/experiments.py --stage tuning [--models b1 b3]      # góp ý 3: tham số chọn mỗi lần tune, trước/sau tuning
 python pipeline/src/experiments.py --stage tuning-tables                # -> results/tuning/tuning_{params,before_after}.csv
 python pipeline/src/experiments.py --stage e2 [--models b2] [--configs no_flows]   # góp ý 4, 5: ablation trên bộ đặc trưng v2
 python pipeline/src/experiments.py --stage e2-tables                    # -> results/e2/tables/
@@ -107,7 +107,7 @@ Data freeze v1.0: sha256 khớp 4 file; flows set A; 10 OHLCV + 33 On-chain; 82 
 
 Mỗi người có thể chạy mô hình của mình riêng. Bảng Δ luôn tính lại từ mọi file trong `results/predictions/`, nên không mất dòng của mô hình chạy trước. Mỗi file predictions được điền `regime` ngay khi ghi; ngày nào không có trong `regime_map.csv` thì báo lỗi, không tự gán.
 
-**Tái lập:** chạy lại cho `p_hat` giống hệt với `lr`, `b0*`, `b3`, `b4`, `b5`. `b2` lệch tối đa khoảng 1e-15, do Random Forest cộng xác suất của các cây song song (`n_jobs: -1`); metric không đổi.
+**Tái lập:** chạy lại cho `p_hat` giống hệt với `b1`, `b0*`, `b3`, `b4`, `b5`. `b2` lệch tối đa khoảng 1e-15, do Random Forest cộng xác suất của các cây song song (`n_jobs: -1`); metric không đổi.
 
 ### Hai lưu ý kỹ thuật
 
@@ -146,11 +146,11 @@ Số đặc trưng On-chain theo nhóm (phương án A, dùng cho ablation E2 qu
 
 | Tên | Mô hình | Ghi chú |
 |---|---|---|
-| `lr` | B1 Logistic Regression, grid C | Bản cho pipeline mỏng; Trâm sở hữu B1 |
+| `b1` | B1 Logistic Regression, grid C | Bản cho pipeline mỏng; Trâm sở hữu B1 |
 | `b0maj` | B0 majority class: p̂ = tỷ lệ ngày tăng trong train | Mức sàn cho log-loss và Brier |
 | `b0pers` | B0 persistence: ngày mai cùng hướng hôm nay | Mức sàn cho DA. p̂ chỉ là 0/1, nên log-loss và Brier để trống trong bảng |
 | `b0rev` | B0 đảo chiều: ngày mai ngược hướng hôm nay; chiều chọn lại trên từng cửa sổ train | Đề xuất 1 của `baseline_check`. Mốc DA mạnh nhất (53,25%); mọi mô hình có học phải so với luật này (`e1_vs_reversal.csv`). p̂ chỉ là 0/1 như `b0pers` |
-| `lrfs` | B1 + chọn đặc trưng tiến dần: bắt đầu từ `logret_lag1`, thêm cột làm log-loss inner CV giảm; grid C | Đề xuất 2 của `baseline_check`. Thường giữ 1–3 đặc trưng OHLCV |
+| `b1fs` | B1 + chọn đặc trưng tiến dần: bắt đầu từ `logret_lag1`, thêm cột làm log-loss inner CV giảm; grid C | Đề xuất 2 của `baseline_check`. Thường giữ 1–3 đặc trưng OHLCV |
 | `b3` | B3 SVM RBF, grid C × gamma | Xác suất hiệu chỉnh sigmoid trên điểm ngoài mẫu theo thời gian (TimeSeriesSplit, gap 1); SVM cuối fit trên toàn cửa sổ train |
 | `b2` | B2 Random Forest, grid số cây × độ sâu × `min_samples_leaf` (12 tổ hợp) | Bản chạy thử; Trâm sở hữu B2 |
 | `b4` | B4 XGBoost, grid learning rate × độ sâu | Bản chạy thử; Khoa sở hữu B4. Số cây chọn bằng early stopping trên 20% cuối cửa sổ train (bỏ 1 ngày gap), rồi fit lại trên toàn cửa sổ |
@@ -172,8 +172,8 @@ Phương án A, 10 đặc trưng OHLCV của Trâm, 2.434 ngày test. DA và AUC
 | `b0maj` | 0,5008 | 0 | 0,6938 | 0 |
 | `b0pers` | 0,4651 | 0 | không dùng | 0 |
 | `b0rev` | 0,5325 | 0 | không dùng | 0 |
-| `lrfs` | 0,5111 → 0,5156 | +0,0045 | 0,6933 → 0,6968 | +0,0036 |
-| `lr` | 0,5111 → 0,5189 | +0,0078 | 0,6953 → 0,7006 | +0,0054 |
+| `b1fs` | 0,5111 → 0,5156 | +0,0045 | 0,6933 → 0,6968 | +0,0036 |
+| `b1` | 0,5111 → 0,5189 | +0,0078 | 0,6953 → 0,7006 | +0,0054 |
 | `b2` (thử) | 0,5123 → 0,5140 | +0,0016 | 0,6961 → 0,6957 | −0,0005 |
 | `b3` | 0,5062 → 0,5029 | −0,0033 | 0,7009 → 0,6959 | −0,0050 |
 | `b4` (thử) | 0,5045 → 0,4897 | −0,0148 | 0,6973 → 0,6958 | −0,0015 |
@@ -182,9 +182,9 @@ Phương án A, 10 đặc trưng OHLCV của Trâm, 2.434 ngày test. DA và AUC
 - Mọi mô hình chỉ đoán đúng 49–52% số ngày.
 - Không mô hình có học nào có log-loss thấp hơn mức sàn `b0maj` (0,6938), ở cả hai cấu hình. Xác suất của mô hình chưa tốt hơn việc luôn đoán tỷ lệ ngày tăng của tập train.
 - Với 2.434 ngày, sai số chuẩn của DA khoảng 1 điểm % (ước lượng thô), nên các Δ ở trên nằm trong mức nhiễu. Riêng `b4` có ΔDA −1,5 điểm, hơi vượt mức đó, nhưng Δlog-loss của nó lại âm (On-chain tốt hơn chút), nên chưa đủ để nói On-chain làm `b4` tệ đi. Cần kiểm định của Vi.
-- Δ đổi dấu giữa các mô hình: ΔDA dương ở `lr`, `b2`, âm ở `b3`, `b4`, `b5`. Không có xu hướng chung nào.
+- Δ đổi dấu giữa các mô hình: ΔDA dương ở `b1`, `b2`, âm ở `b3`, `b4`, `b5`. Không có xu hướng chung nào.
 - Theo quy tắc ghi sẵn (mô hình tốt nhất là mô hình có log-loss thấp nhất ở cấu hình OHLCV + On-chain), mô hình tốt nhất là `b2` (0,6957), sát với `b4` (0,6958), `b3` và `b5` (0,6959). ΔDA của `b2` chỉ +0,16 điểm.
-- Δ rất nhạy với bộ OHLCV: với 7 đặc trưng tạm (bản 28/10), ΔDA của `lr` là −0,0045; đổi sang 10 đặc trưng thì thành +0,0078.
+- Δ rất nhạy với bộ OHLCV: với 7 đặc trưng tạm (bản 28/10), ΔDA của `b1` là −0,0045; đổi sang 10 đặc trưng thì thành +0,0078.
 - `b0pers` dưới 50%: trong giai đoạn 2020–2026, hướng giá ngày mai hay ngược với hôm nay.
 - `b3` cấu hình OHLCV-only có log-loss tệ hơn mức sàn `b0maj`. Có những ngày mô hình quá tự tin (p̂ tới 0,987); cần xem lại theo từng fold.
 - Tỷ lệ ngày tăng đổi mạnh theo năm, từ khoảng 46% (2022) đến 58% (2020) ([`eda_05_label_balance.png`](../features/reports/figures/eda_05_label_balance.png)). Vì vậy DA của từng fold nên so với tỷ lệ tăng của chính giai đoạn đó, không so với 0,5.
@@ -198,7 +198,7 @@ Bằng `features/src/backtest.py` (long nếu p̂ > 0,5, phí 0,1%/lượt, 2020
 | buy-and-hold | +990% | 0,90 | −77% | 100% |
 | `b0maj` | +72% | 0,43 | −82% | 63% |
 | `b0pers` | −71% | −0,23 | −79% | 51% |
-| `lr` | +19% → +245% | 0,31 → 0,63 | −87% → −65% | 56% → 55% |
+| `b1` | +19% → +245% | 0,31 → 0,63 | −87% → −65% | 56% → 55% |
 | `b2` (thử) | +241% → +14% | 0,62 → 0,29 | −80% → −76% | 55% → 54% |
 | `b3` | +286% → +63% | 0,65 → 0,41 | −72% → −80% | 73% → 65% |
 | `b4` (thử) | −43% → −65% | 0,11 → −0,05 | −86% → −93% | 63% → 58% |
@@ -216,7 +216,7 @@ Regime từ HMM của Ngân (`regime_map.csv`): Bull 1.250 ngày, Sideways 902 n
 
 | Mô hình | ΔDA Bull | ΔDA Sideways | ΔDA Bear |
 |---|---|---|---|
-| `lr` | +0,0008 | +0,0166 | +0,0106 |
+| `b1` | +0,0008 | +0,0166 | +0,0106 |
 | `b2` (thử) | −0,0120 | +0,0166 | +0,0142 |
 | `b3` | −0,0064 | −0,0089 | +0,0284 |
 | `b4` (thử) | −0,0112 | −0,0288 | +0,0142 |

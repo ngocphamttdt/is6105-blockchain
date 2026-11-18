@@ -31,7 +31,7 @@ DA, AUC: cao hơn là tốt hơn. Log-loss: thấp hơn là tốt hơn. 2.434 ng
 | b3        | log_loss |               0.7023 |                     0.7009 |     -0.0062 |           -0.005  |
 | b3        | auc      |               0.5059 |                     0.5027 |     -0.006  |           -0.0045 |
 
-- `lr`: ΔDA đổi dấu, từ −0,45 điểm thành +0,78 điểm, chỉ vì đổi bộ đặc trưng OHLCV. Cả hai đều nhỏ hơn
+- `b1`: ΔDA đổi dấu, từ −0,45 điểm thành +0,78 điểm, chỉ vì đổi bộ đặc trưng OHLCV. Cả hai đều nhỏ hơn
   sai số chuẩn của DA (khoảng 1 điểm), nên đây là nhiễu, không phải bằng chứng On-chain có ích hay vô ích.
 - Bài học cho RQ1: Δ rất nhạy với baseline OHLCV, nên cần chốt bộ OHLCV trước khi chạy E1 chính thức và kiểm định.
 
@@ -50,5 +50,5 @@ DA, AUC: cao hơn là tốt hơn. Log-loss: thấp hơn là tốt hơn. 2.434 ng
 | buy_and_hold | -             | nan     |        9.901 |    0.901 | -0.766 |          1 |
 
 Không mô hình nào thắng buy-and-hold (+990%). Lợi nhuận backtest xếp hạng khác với DA
-(ví dụ `b3` OHLCV-only có DA thấp hơn `lr` nhưng lời nhiều hơn), vì lời lỗ phụ thuộc vào việc
+(ví dụ `b3` OHLCV-only có DA thấp hơn `b1` nhưng lời nhiều hơn), vì lời lỗ phụ thuộc vào việc
 đoán đúng những ngày giá biến động mạnh.

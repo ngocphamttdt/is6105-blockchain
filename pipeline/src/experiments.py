@@ -9,7 +9,7 @@ experiments.py  –  Vi: góp ý 3–5 của thầy trên cùng pipeline (fold, 
                      ngày ≤ 09/04/2026 (Flows đã được CoinMetrics tính lại hàng loạt trong 01–20/04/2026, không phải
                      giá trị có sẵn lúc dự báo) và ngày ≥ 10/04/2026 (giá trị công bố lần đầu, đúng thời điểm).
 
-  python pipeline/src/experiments.py --stage tuning [--models lr b3]
+  python pipeline/src/experiments.py --stage tuning [--models b1 b3]
   python pipeline/src/experiments.py --stage e2 [--models b2] [--configs plus_flows no_flows]
   python pipeline/src/experiments.py --stage e2-tables
   python pipeline/src/experiments.py --stage e3          (góp ý 6) Δ theo regime HMM và regime theo xu hướng,
@@ -37,7 +37,7 @@ from models import RULES, load_model, run_rule
 from run_all import attach_regime, load_regime_map, run_tests
 from walkforward import fold_indices, inner_cv, make_folds, make_pipeline, run_walkforward
 
-ML = ["lr", "b2", "b3", "b4"]
+ML = ["b1", "b2", "b3", "b4"]
 E2_CONFIGS = ["ohlcv", "onchain", "plus_activity", "plus_flows", "plus_mining", "plus_valuation", "no_flows"]
 CLIP_Q = 0.01
 POINT_IN_TIME_FROM = "2026-04-10"      # data/raw/vi_ohlcv_flows/reports/flows_vintage.md
@@ -278,8 +278,8 @@ def figures():
     import matplotlib.pyplot as plt
     plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False})
     ink, muted, grid, surf = "#2a78d6", "#52514e", "#e6e5e1", "#fcfcfb"
-    names = {"lr": "B1 Logistic Regression", "b2": "B2 Random Forest", "b3": "B3 SVM", "b4": "B4 XGBoost",
-             "b5": "B5 LSTM", "lrfs": "B1 + chọn đặc trưng"}
+    names = {"b1": "B1 Logistic Regression", "b2": "B2 Random Forest", "b3": "B3 SVM", "b4": "B4 XGBoost",
+             "b5": "B5 LSTM", "b1fs": "B1 + chọn đặc trưng"}
     out = RESULTS / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
@@ -345,7 +345,7 @@ def _tests():
     est, grid = default_estimator("b2")
     assert est.get_params()["max_depth"] is None and est.get_params()["n_estimators"] == 100
     assert est.get_params()["random_state"] == 0 and set(grid) == {"n_estimators", "max_depth", "min_samples_leaf"}
-    assert default_estimator("lr")[0].get_params()["C"] == 1.0
+    assert default_estimator("b1")[0].get_params()["C"] == 1.0
 
     # 3) Δ theo regime: trung bình có trọng số theo số ngày bằng Δ gộp
     rng = np.random.default_rng(1)

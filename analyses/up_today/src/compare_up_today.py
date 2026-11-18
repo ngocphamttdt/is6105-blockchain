@@ -1,5 +1,5 @@
 """
-compare_up_today.py  –  Trâm: thêm đặc trưng up_today, chạy lại B1 (lr, lrfs) và B3 (SVM RBF)
+compare_up_today.py  –  Trâm: thêm đặc trưng up_today, chạy lại B1 (b1, b1fs) và B3 (SVM RBF)
 
 up_today = 1 nếu giá đóng cửa ngày t cao hơn ngày t−1 (features/src/features_ohlcv.py).
 So hai bộ đặc trưng OHLCV trên cùng mô hình, cùng config, cùng 82 fold của pipeline:
@@ -7,9 +7,9 @@ So hai bộ đặc trưng OHLCV trên cùng mô hình, cùng config, cùng 82 fo
   11 đặc trưng  = FEATURES    (10 + up_today)
 và cho cả hai cấu hình: OHLCV-only và OHLCV + On-chain (33 cột On-chain, Flows A).
 
-Mô hình và grid lấy nguyên từ pipeline/configs/models/{lr,lrfs,b3}.yaml; tune bằng inner CV trong cửa sổ train
+Mô hình và grid lấy nguyên từ pipeline/configs/models/{b1,b1fs,b3}.yaml; tune bằng inner CV trong cửa sổ train
 (walkforward.tune), tune lại mỗi 6 fold. Vòng walk-forward giống walkforward.run_walkforward, chỉ thêm ghi lại
-tham số được chọn ở mỗi lần tune và các cột mà lrfs giữ lại ở mỗi fold.
+tham số được chọn ở mỗi lần tune và các cột mà b1fs giữ lại ở mỗi fold.
 
 Chạy từ thư mục gốc repo:
     python analyses/up_today/src/compare_up_today.py            # chạy mô hình (~5 phút) rồi viết báo cáo
@@ -37,8 +37,8 @@ BASE = Path(__file__).resolve().parents[1]
 PRED = BASE / "results/predictions"
 TAB = BASE / "results/tables"
 FIG = BASE / "reports/figures"
-MODELS = ["lr", "lrfs", "b3"]
-MODEL_LABEL = {"lr": "B1 Logistic Regression (lr)", "lrfs": "B1 LR chọn đặc trưng tiến dần (lrfs)",
+MODELS = ["b1", "b1fs", "b3"]
+MODEL_LABEL = {"b1": "B1 Logistic Regression (b1)", "b1fs": "B1 LR chọn đặc trưng tiến dần (b1fs)",
                "b3": "B3 SVM RBF (b3)"}
 CONFIGS = ("ohlcv", "ohlcv_onchain")
 FSETS = ("f10", "f11")                      # f10 = 10 đặc trưng ban đầu, f11 = 10 + up_today
@@ -57,7 +57,7 @@ def load_all():
 
 
 def walkforward_logged(data, cols, folds, wf, name, tag, log):
-    """Như walkforward.run_walkforward, thêm ghi tham số đã chọn và cột lrfs giữ lại."""
+    """Như walkforward.run_walkforward, thêm ghi tham số đã chọn và cột b1fs giữ lại."""
     est, grid = load_model(name)
     out, best = [], {}
     for i, fold in enumerate(folds):
@@ -109,7 +109,7 @@ def run_models():
             for fs in FSETS:
                 tag = f"{fs}_{config}"
                 out = PRED / f"{name}__{tag}.csv"
-                if out.exists():                # chạy tiếp từ chỗ dừng: lrfs + On-chain mất ~25 phút mỗi lần
+                if out.exists():                # chạy tiếp từ chỗ dừng: b1fs + On-chain mất ~25 phút mỗi lần
                     print(f"{name} {tag}: đã có, bỏ qua")
                     continue
                 log = []
@@ -197,7 +197,7 @@ def write_report():
     yr = pd.DataFrame(yr)
     yr.to_csv(TAB / "by_year_ohlcv.csv", index=False)
 
-    md = ["# Thêm đặc trưng up_today: chạy lại B1 (lr, lrfs) và B3 (SVM RBF) – Trâm", "",
+    md = ["# Thêm đặc trưng up_today: chạy lại B1 (b1, b1fs) và B3 (SVM RBF) – Trâm", "",
           "Tạo bởi `analyses/up_today/src/compare_up_today.py`. `up_today` = 1 nếu giá đóng cửa ngày t cao hơn ngày t−1 "
           "(`features/src/features_ohlcv.py`). Mô hình, grid, 82 fold, chuẩn hoá lấy nguyên từ `pipeline`; "
           "tune bằng inner CV trong cửa sổ train, không dùng ngày test. Mốc so sánh: luật đảo chiều `b0rev` "
@@ -249,11 +249,11 @@ def write_report():
             md.append(f"- {MODEL_LABEL[name]}, {tag.replace('f10_', '10 đặc trưng, ').replace('f11_', '11 đặc trưng, ')}: "
                       + "; ".join(f"{k} ({v} lần)" for k, v in vc.items()))
     md.append("")
-    md += ["", "lrfs 10 đặc trưng + On-chain không có log tham số vì lần chạy đó (24 phút) được giữ lại từ lần chạy trước khi "
+    md += ["", "b1fs 10 đặc trưng + On-chain không có log tham số vì lần chạy đó (24 phút) được giữ lại từ lần chạy trước khi "
            "thêm phần ghi log; dự báo của nó vẫn dùng đầy đủ trong các bảng.", ""]
-    lf = flog[(flog.model == "lrfs")]
+    lf = flog[(flog.model == "b1fs")]
     if len(lf):
-        md += ["**lrfs giữ lại những cột nào** (tính trên 82 fold):", "",
+        md += ["**b1fs giữ lại những cột nào** (tính trên 82 fold):", "",
                "| Cấu hình | Bộ đặc trưng | Số cột giữ TB | % fold giữ up_today | Cột hay được giữ nhất |", "|---|---|---|---|---|"]
         for tag in [f"{fs}_{c}" for c in CONFIGS for fs in FSETS]:
             L = lf[lf.tag == tag]
@@ -306,38 +306,38 @@ def write_report():
     fixed = {}
     for fs in FSETS:
         q = lr_fixed_c(data, cols[(fs, "ohlcv")], folds)
-        r = metric_row(q, "lr")
+        r = metric_row(q, "b1")
         fixed[fs] = (r["da"], r["log_loss"], r["p_vs_50"])
     pd.DataFrame({fs: {"da": v[0], "log_loss": v[1], "p_vs_50": v[2]} for fs, v in fixed.items()}).T.to_csv(
-        TAB / "lr_fixed_C1_ohlcv.csv")
+        TAB / "b1_fixed_C1_ohlcv.csv")
 
     # Tóm tắt
     def g(n, fs, c="ohlcv"):
         return T.loc[(n, fs, c)]
     best = max(MODELS, key=lambda n: g(n, "f11").da)
-    up_lr = d_up[(d_up.model == "lr") & (d_up.config == "ohlcv")].iloc[0]
+    up_lr = d_up[(d_up.model == "b1") & (d_up.config == "ohlcv")].iloc[0]
     up_b3 = d_up[(d_up.model == "b3") & (d_up.config == "ohlcv")].iloc[0]
     on11 = d_on[d_on.fs == "f11"]
     lf11 = lf[lf.tag == "f11_ohlcv"]
     summary = ["## Tóm tắt", "",
-               f"1. **B1 (lr) OHLCV-only:** {pct(up_lr.da_f10)}% → **{pct(up_lr.da_f11)}%** khi thêm up_today "
+               f"1. **B1 (b1) OHLCV-only:** {pct(up_lr.da_f10)}% → **{pct(up_lr.da_f11)}%** khi thêm up_today "
                f"(ΔDA {pct(up_lr.d_da)} điểm, p = {pval(up_lr.p)}); log-loss {num(up_lr.ll_f10)} → {num(up_lr.ll_f11)}. "
-               f"So với 50%: p = {pval(g('lr','f11').p_vs_50)}.",
-               f"2. **lrfs OHLCV-only:** {pct(g('lrfs','f10').da)}% → {pct(g('lrfs','f11').da)}%; "
-               f"lrfs giữ up_today ở {pct(lf11.kept_up_today.mean(),0)}% số fold." if len(lf11) else "",
+               f"So với 50%: p = {pval(g('b1','f11').p_vs_50)}.",
+               f"2. **b1fs OHLCV-only:** {pct(g('b1fs','f10').da)}% → {pct(g('b1fs','f11').da)}%; "
+               f"b1fs giữ up_today ở {pct(lf11.kept_up_today.mean(),0)}% số fold." if len(lf11) else "",
                f"3. **B3 SVM OHLCV-only:** {pct(up_b3.da_f10)}% → {pct(up_b3.da_f11)}% (ΔDA {pct(up_b3.d_da)} điểm, p = {pval(up_b3.p)}). "
                "SVM RBF gần như không dùng được cột 0/1 này.",
                f"4. **So với luật đảo chiều ({pct(hrev.mean())}%):** mô hình tốt nhất sau khi thêm up_today là "
                f"{MODEL_LABEL[best]} với {pct(g(best,'f11').da)}%, "
                f"{'vẫn kém' if g(best,'f11').d_vs_rev < 0 else 'hơn'} luật {pct(abs(g(best,'f11').d_vs_rev))} điểm "
                f"(p = {pval(g(best,'f11').p_vs_rev)}).",
-               (lambda L, cmin: f"__ITEM6__6. **Tuning của lr chọn C = {cmin:g} (giá trị nhỏ nhất của grid, regularization mạnh nhất) ở "
+               (lambda L, cmin: f"__ITEM6__6. **Tuning của b1 chọn C = {cmin:g} (giá trị nhỏ nhất của grid, regularization mạnh nhất) ở "
                 f"{int((L.param_C == cmin).sum())}/{len(L)} lần tune.** Khi tín hiệu yếu, tiêu chí log-loss luôn ưu tiên thu hệ số về gần 0 "
                 "để p̂ sát tỷ lệ tăng của train: log-loss tốt hơn nhưng phần lớn tác dụng của up_today lên DA bị triệt tiêu. "
                 f"Cùng mô hình nhưng C = 1 cố định (không tune): DA {pct(fixed['f11'][0])}% (p = {pval(fixed['f11'][2])}), "
                 f"log-loss {num(fixed['f11'][1])} (10 đặc trưng, C = 1: DA {pct(fixed['f10'][0])}%). "
                 "Nhóm cần chốt metric chính (DA hay log-loss) trước, vì hai metric đang kéo tuning về hai hướng.")(
-                   flog[(flog.model == "lr") & (flog.tag == "f11_ohlcv") & flog.retuned], min(load_model("lr")[1]["C"])),
+                   flog[(flog.model == "b1") & (flog.tag == "f11_ohlcv") & flog.retuned], min(load_model("b1")[1]["C"])),
                "5. **Thêm On-chain trên bộ 11 đặc trưng:** " + "; ".join(
                    f"{r.model} ΔDA {pct(r.d_da)} điểm (p = {pval(r.p)})" for r in on11.itertuples()) + ".",
                "", "**Ảnh hưởng tới cả nhóm:** `pipeline` lấy mọi cột mà `build_ohlcv_features` trả về, nên sau khi gộp PR này, "

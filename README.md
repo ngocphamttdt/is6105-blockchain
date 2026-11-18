@@ -109,7 +109,7 @@ Tạo lại bằng `src/data_freeze.py`. Khi thấy lỗi dữ liệu thì ra ph
 | `experiments.py` | Báo cáo tuning, E2 (ablation theo nhóm On-chain), E3 (Δ theo regime) |
 | `gate.py` | Kiểm baseline OHLCV trước, sau đó thêm từng nhóm On-chain theo inner CV |
 | `hybrid.py` | Kết hợp luật đảo chiều với mô hình (dùng luật làm đặc trưng hoặc để ghi đè dự báo) |
-| `lr_tuning.py` | Tuning đầy đủ cho B1 Logistic Regression (tập đặc trưng, C, L1/L2, class_weight) |
+| `b1t_tuning.py` | Tuning đầy đủ cho B1 Logistic Regression (tập đặc trưng, C, L1/L2, class_weight) |
 | `rules30.py` | Luật đơn giản theo cửa sổ 30 ngày, bảng accuracy / F1 |
 
 **Mô hình** (config ở `configs/models/*.yaml`; quy ước đặt tên ở [`configs/models/README.md`](pipeline/configs/models/README.md)). Mã có **hậu tố `t`** là bản **đã tune lại**, nằm cạnh bản tune bằng grid gốc:
@@ -117,7 +117,7 @@ Tạo lại bằng `src/data_freeze.py`. Khi thấy lỗi dữ liệu thì ra ph
 | Baseline | Không tune | Grid gốc (Phụ lục C) | Đã tune lại |
 |---|---|---|---|
 | B0 | `b0maj` Majority (mức sàn log-loss)<br>`b0pers` Persistence (mức sàn DA)<br>`b0rev` Đảo chiều (chiều chọn trên train) | | |
-| B1 Logistic Regression | | `lr`<br>`lrfs` (+ chọn đặc trưng tiến dần) | `lrt` (tune cả tập đặc trưng, C, L1/L2, class_weight; chạy bằng `lr_tuning.py`) |
+| B1 Logistic Regression | | `b1`<br>`b1fs` (+ chọn đặc trưng tiến dần) | `b1t` (tune cả tập đặc trưng, C, L1/L2, class_weight; chạy bằng `b1t_tuning.py`) |
 | B2 Random Forest | | `b2` | `b2t` (xem `analyses/b2_tuning/`) |
 | B3 SVM RBF | | `b3` | |
 | B4 XGBoost | | `b4` (số cây chọn bằng early stopping) | |
@@ -125,7 +125,7 @@ Tạo lại bằng `src/data_freeze.py`. Khi thấy lỗi dữ liệu thì ra ph
 
 **`configs/`**: `walkforward.yaml` (lịch fold), `features_onchain.yaml` (bộ đặc trưng On-chain v1, dùng cho E1), `features_onchain_v2.yaml` (bộ v2, dùng cho E2).
 
-**`results/`**: `predictions/` (dự báo `{model}_{config}.csv`), `tables/` (bảng E1), `e2/`, `e3/`, `tuning/`, `lr_tuning/`, `gate/`, `hybrid/`, `rules30/`, `figures/`.
+**`results/`**: `predictions/` (dự báo `{model}_{config}.csv`), `tables/` (bảng E1), `e2/`, `e3/`, `tuning/`, `b1t/`, `gate/`, `hybrid/`, `rules30/`, `figures/`.
 
 ### (5) `regime/` — Chế độ thị trường và LSTM
 
@@ -194,7 +194,7 @@ Các lệnh thường dùng:
 ```bash
 python pipeline/src/run_all.py --test                     # chạy test của pipeline (~10 giây)
 python pipeline/src/run_all.py --stage data               # kiểm data freeze, đặc trưng, fold
-python pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b2 b3 b4 b5   # chạy E1
+python pipeline/src/run_all.py --stage e1 --models b1 b0pers b0maj b2 b3 b4 b5   # chạy E1
 python pipeline/src/run_all.py --stage tables             # tính lại bảng từ predictions có sẵn
 python features/src/backtest.py                           # backtest mọi file dự báo
 python analyses/metrics_check/src/metrics_check.py        # kiểm tra metric
@@ -204,9 +204,11 @@ Lệnh chi tiết của từng phần: xem README trong thư mục tương ứng
 
 ---
 
-## 6. Đổi tên thư mục (11/2026)
+## 6. Đổi tên (11/2026)
 
-Thư mục đã được sắp xếp lại theo chức năng. Nếu tài liệu cũ hoặc branch cũ còn dùng tên cũ, đối chiếu theo bảng sau:
+Thư mục và mã mô hình đã được đặt lại tên cho rõ nghĩa. Nếu tài liệu cũ (kể cả báo cáo giữa kỳ) hoặc branch cũ còn dùng tên cũ, đối chiếu theo các bảng sau.
+
+**Thư mục:**
 
 | Tên cũ | Tên mới |
 |---|---|
@@ -220,3 +222,13 @@ Thư mục đã được sắp xếp lại theo chức năng. Nếu tài liệu 
 | `tram_up_today/` | `analyses/up_today/` |
 | `experiment_paper/` | `analyses/paper_replication/` |
 | `feedback_review/` | `docs/feedback_review/` |
+
+**Mã mô hình B1** (tên file kết quả đổi theo, ví dụ `lr_ohlcv.csv` → `b1_ohlcv.csv`). Chi tiết ở [`pipeline/configs/models/README.md`](pipeline/configs/models/README.md):
+
+| Tên cũ | Tên mới | Ý nghĩa |
+|---|---|---|
+| `lr` | `b1` | B1, tune bằng grid gốc |
+| `lrfs` | `b1fs` | B1 + chọn đặc trưng tiến dần |
+| `lrt`, `lr_tuned` | `b1t` | B1 đã tune lại (tune đầy đủ) |
+| `lr_sign` | `b1sign` | B1 chỉ dùng dấu return hôm nay (`hybrid.py`) |
+| `pipeline/src/lr_tuning.py`, `pipeline/results/lr_tuning/` | `pipeline/src/b1t_tuning.py`, `pipeline/results/b1t/` | |

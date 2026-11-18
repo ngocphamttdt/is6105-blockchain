@@ -118,7 +118,7 @@ Luôn tăng trên từng khối dao động 37–70%. Majority của simple_spli
 
 ## Ghi chú
 
-- DA của mỗi mô hình lấy từ file dự báo hiện có trong repo; con số khớp với các bảng E1, `lr_tuning_summary.csv`, `analyses/b2_tuning` và `simple_split` của nhóm.
-- B1 tune đầy đủ: file `lr_tuned_logloss.csv` và bảng `pipeline/results/lr_tuning/tables/lr_tuning_summary.csv` đều cho 53,20%, trong khi `docs/feedback_review/report.md` còn ghi 52,59% (bản chạy cũ hơn). Nên cập nhật report đó cho khớp.
+- DA của mỗi mô hình lấy từ file dự báo hiện có trong repo; con số khớp với các bảng E1, `b1t_summary.csv`, `analyses/b2_tuning` và `simple_split` của nhóm.
+- B1 tune đầy đủ: file `b1t_logloss.csv` và bảng `pipeline/results/b1t/tables/b1t_summary.csv` đều cho 53,20%, trong khi `docs/feedback_review/report.md` còn ghi 52,59% (bản chạy cũ hơn). Nên cập nhật report đó cho khớp.
 - p so với luôn tăng: McNemar chính xác trên các ngày mô hình và luôn tăng khác nhau (tức các ngày mô hình đoán giảm).
 - Fold cuối của walk-forward chỉ có 4 ngày; nó có trong bảng đếm fold nhưng không có trong thống kê fold đủ 30 ngày.

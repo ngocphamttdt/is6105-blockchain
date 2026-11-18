@@ -2,7 +2,7 @@
 # số cây chọn bằng early stopping trên 20% cuối cửa sổ train (tối đa n_estimators)
 baseline: B4
 tuning: original_grid  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
-class: b4
+class: xgboost
 params:
   n_estimators: 1000
   early_stopping_rounds: 50

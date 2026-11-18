@@ -88,23 +88,23 @@ def _build_models():
     import yaml
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.exceptions import ConvergenceWarning
-    import lr_tuning
+    import b1t_tuning                                     # B1 tune đầy đủ (b1t)
     from models import CalibratedSVC
     from walkforward import make_pipeline
     warnings.simplefilter("ignore", ConvergenceWarning)
 
-    # LR (Vi): 5 tập đặc trưng × lr_tuning.GRID, winsorize CLIP_Q; trước tune = C 1, L2, 10 đặc trưng, không winsorize
-    sets = lr_tuning.feature_sets(FEATURES_10)
+    # LR (Vi): 5 tập đặc trưng × b1t_tuning.GRID, winsorize CLIP_Q; trước tune = C 1, L2, 10 đặc trưng, không winsorize
+    sets = b1t_tuning.feature_sets(FEATURES_10)
 
     def lr_fit(prm, learn, target, seeds=None, _cols_seen=None):
         cw = None if prm["class_weight"] in (None, "none") else prm["class_weight"]
-        est = lr_tuning.ElasticNetLR(C=prm["C"], l1_ratio=prm["l1_ratio"], class_weight=cw)
-        return _sk_fit(lambda s: make_pipeline(est, lr_tuning.CLIP_Q if prm["clip"] else None), sets[prm["set"]],
+        est = b1t_tuning.ElasticNetLR(C=prm["C"], l1_ratio=prm["l1_ratio"], class_weight=cw)
+        return _sk_fit(lambda s: make_pipeline(est, b1t_tuning.CLIP_Q if prm["clip"] else None), sets[prm["set"]],
                        learn, target, _cols_seen=_cols_seen)
 
     lr_grid = [{"set": st, "C": c, "l1_ratio": l1, "class_weight": cw, "clip": True}
-               for st in sets for c in lr_tuning.GRID["C"] for l1 in lr_tuning.GRID["l1_ratio"]
-               for cw in lr_tuning.GRID["class_weight"]]
+               for st in sets for c in b1t_tuning.GRID["C"] for l1 in b1t_tuning.GRID["l1_ratio"]
+               for cw in b1t_tuning.GRID["class_weight"]]
     MODELS["LR"] = {"before": {"set": "ohlcv10", "C": 1.0, "l1_ratio": 0.0, "class_weight": None, "clip": False},
                     "grid": lr_grid, "fit": lr_fit}
 

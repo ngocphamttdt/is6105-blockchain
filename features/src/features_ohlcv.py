@@ -39,7 +39,7 @@ OHLCV_COLS = ["ohlcv_open", "ohlcv_high", "ohlcv_low", "ohlcv_close", "ohlcv_vol
 FEATURES_10 = ["logret_lag1", "logret_lag2", "logret_lag3", "logret_lag4", "logret_lag5",
                "hl_range", "dlog_volume", "rsi_14", "rv_7d", "rv_30d"]
 # 12/11/2026: thêm up_today = 1[return ngày t > 0]. Quy luật duy nhất tìm được (baseline_check) là đảo chiều theo
-# DẤU return 1 ngày, trong khi 10 cột trên chỉ đo độ lớn. Đặt cuối danh sách để lrfs vẫn bắt đầu từ logret_lag1.
+# DẤU return 1 ngày, trong khi 10 cột trên chỉ đo độ lớn. Đặt cuối danh sách để b1fs vẫn bắt đầu từ logret_lag1.
 FEATURES = FEATURES_10 + ["up_today"]
 
 

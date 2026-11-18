@@ -10,9 +10,9 @@ luôn tăng đúng 60%. Script này tính:
   - mô hình có "đi theo" xu hướng của fold không (tương quan % đoán tăng với tỷ lệ tăng thật của fold).
 
 Chỉ đọc file dự báo đã có trong repo, không chạy lại mô hình:
-  pipeline/results/predictions/{model}_{config}.csv         (b0*, lr, b2t, b3, b4, b5)
-  pipeline/results/lr_tuning/predictions/lr_tuned_logloss.csv   (B1 tune đầy đủ của Vi, OHLCV)
-  pipeline/results/lr_tuning/e1/ohlcv_onchain/predictions/lr_ohlcv_onchain.csv
+  pipeline/results/predictions/{model}_{config}.csv         (b0*, b1, b2t, b3, b4, b5)
+  pipeline/results/b1t/predictions/b1t_logloss.csv   (B1 tune đầy đủ của Vi, OHLCV)
+  pipeline/results/b1t/e1/ohlcv_onchain/predictions/b1t_ohlcv_onchain.csv
   analyses/simple_split/reports/predictions_test.csv
 
 Chạy từ thư mục gốc repo:   python analyses/naive_folds/src/naive_folds.py
@@ -36,16 +36,16 @@ WF_OHLCV = {
     "B0 Majority (train)": NP / "predictions/b0maj_ohlcv.csv",
     "B0 Persistence": NP / "predictions/b0pers_ohlcv.csv",
     "B0 Đảo chiều": NP / "predictions/b0rev_ohlcv.csv",
-    "B1 LR (E1)": NP / "predictions/lr_ohlcv.csv",
-    "B1 LR tune đầy đủ (Vi)": NP / "lr_tuning/predictions/lr_tuned_logloss.csv",
+    "B1 LR (E1)": NP / "predictions/b1_ohlcv.csv",
+    "B1 LR tune đầy đủ (Vi)": NP / "b1t/predictions/b1t_logloss.csv",
     "B2 RF tuned (b2t)": NP / "predictions/b2t_ohlcv.csv",
     "B3 SVM RBF": NP / "predictions/b3_ohlcv.csv",
     "B4 XGBoost": NP / "predictions/b4_ohlcv.csv",
     "B5 LSTM": NP / "predictions/b5_ohlcv.csv",
 }
 WF_ONCHAIN = {
-    "B1 LR (E1)": NP / "predictions/lr_ohlcv_onchain.csv",
-    "B1 LR tune đầy đủ (Vi)": NP / "lr_tuning/e1/ohlcv_onchain/predictions/lr_ohlcv_onchain.csv",
+    "B1 LR (E1)": NP / "predictions/b1_ohlcv_onchain.csv",
+    "B1 LR tune đầy đủ (Vi)": NP / "b1t/e1/ohlcv_onchain/predictions/b1t_ohlcv_onchain.csv",
     "B2 RF tuned (b2t)": NP / "predictions/b2t_ohlcv_onchain.csv",
     "B3 SVM RBF": NP / "predictions/b3_ohlcv_onchain.csv",
     "B4 XGBoost": NP / "predictions/b4_ohlcv_onchain.csv",
@@ -387,9 +387,9 @@ def main():
            "", f"Luôn tăng trên từng khối dao động {pct(disp_s['min'],0)}–{pct(disp_s['max'],0)}%. "
            f"Majority của simple_split đoán tăng mọi ngày (tỷ lệ tăng của 2018–2023 là hơn 50%), nên trùng với luôn tăng.", "",
            "## Ghi chú", "",
-           "- DA của mỗi mô hình lấy từ file dự báo hiện có trong repo; con số khớp với các bảng E1, `lr_tuning_summary.csv`, "
+           "- DA của mỗi mô hình lấy từ file dự báo hiện có trong repo; con số khớp với các bảng E1, `b1t_summary.csv`, "
            "`analyses/b2_tuning` và `simple_split` của nhóm.",
-           f"- B1 tune đầy đủ: file `lr_tuned_logloss.csv` và bảng `pipeline/results/lr_tuning/tables/lr_tuning_summary.csv` đều cho "
+           f"- B1 tune đầy đủ: file `b1t_logloss.csv` và bảng `pipeline/results/b1t/tables/b1t_summary.csv` đều cho "
            f"{pct(S.loc['B1 LR tune đầy đủ (Vi)','da'])}%, trong khi `docs/feedback_review/report.md` còn ghi 52,59% (bản chạy cũ hơn). "
            "Nên cập nhật report đó cho khớp.",
            "- p so với luôn tăng: McNemar chính xác trên các ngày mô hình và luôn tăng khác nhau (tức các ngày mô hình đoán giảm).",

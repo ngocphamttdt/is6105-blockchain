@@ -3,26 +3,27 @@ models.py  –  Task 2.8, 2.11, 3.8 (Ngọc): interface chung cho mô hình, và
 
 Mỗi mô hình là một estimator kiểu sklearn (fit, predict_proba, get_params/set_params), đăng ký trong
 REGISTRY và có config configs/models/{tên}.yaml:
-  class: b3                       # khoá trong REGISTRY
+  class: svm_rbf                  # thuật toán: khoá trong REGISTRY (tên file là mã mô hình, vd. b3)
   params: {cal_splits: 3}         # tham số cố định
   param_grid: {C: [0.1, 1, 10]}   # grid để tune, tên tham số của mô hình
 Nhờ vậy mô hình đi thẳng qua make_pipeline (scaler fit trong train) và tune của walkforward.py.
 
-Mô hình đã có:
-  lr      B1 Logistic Regression (bản pipeline mỏng; Trâm sở hữu B1)
+Mô hình đã có (mã = tên file config; hậu tố t = đã tune lại):
+  b1      B1 Logistic Regression (bản pipeline mỏng; Trâm sở hữu B1). Tên cũ: lr
   b0maj   B0 majority class: p̂ = tỷ lệ ngày tăng trong train. Mức sàn cho log-loss, Brier
   b0pers  B0 persistence: ngày mai cùng hướng hôm nay, p̂_t = 1[close_t > close_{t−1}]. Mức sàn cho DA.
           Không fit nên nằm trong RULES, không qua run_walkforward. p̂ chỉ là 0/1 nên log-loss không dùng được
   b0rev   B0 đảo chiều: ngày mai ngược hướng hôm nay, p̂_t = 1 − 1[close_t > close_{t−1}]. Chiều chọn lại trên
           từng cửa sổ train: nếu persistence đúng ≥ 50% trong train thì dùng persistence (baseline_check, đề xuất 1).
           Mọi mô hình có học phải được so với luật này. Cũng nằm trong RULES
-  lrfs    B1 có chọn đặc trưng tiến dần: bắt đầu từ cột đầu tiên (logret_lag1), mỗi bước thêm cột làm log-loss
+  b1fs    B1 có chọn đặc trưng tiến dần (tên cũ: lrfs): bắt đầu từ cột đầu tiên (logret_lag1), mỗi bước thêm cột làm log-loss
           inner CV (TimeSeriesSplit trong cửa sổ train) giảm nhiều nhất, dừng khi không giảm quá tol
           (baseline_check, đề xuất 2)
   b3      B3 SVM RBF, xác suất hiệu chỉnh sigmoid trên điểm ngoài mẫu theo thời gian
   b2      B2 Random Forest (bản chạy thử; Trâm sở hữu B2)
   b2t     B2 Random Forest đã tuning (configs/models/b2t.yaml; chi tiết analyses/b2_tuning/README.md)
   b4      B4 XGBoost, early stopping trên 20% cuối cửa sổ train (bản chạy thử; Khoa sở hữu B4)
+  b1t     B1 tune đầy đủ (tên cũ: lrt / lr_tuned), chạy bằng b1t_tuning.py, không qua load_model
 B0 không dùng đặc trưng, nên hai cấu hình OHLCV và OHLCV + On-chain cho cùng dự báo (Δ = 0).
 
 python models.py --test  -> chạy test
@@ -182,8 +183,9 @@ def reversal_predictions(data, folds, target=TARGET, flip_below=0.5) -> pd.DataF
     return _direction_rule(data, folds, target, lambda y, y_prev: (y == y_prev).mean() < flip_below)
 
 
-REGISTRY = {"lr": LogisticRegression, "b0maj": DummyClassifier, "b3": CalibratedSVC,
-            "b2": RandomForestClassifier, "b4": EarlyStoppingXGB, "lrfs": ForwardSelectLR}
+# Khoá = thuật toán (trường class của config), không phải mã mô hình: b2 và b2t cùng class random_forest
+REGISTRY = {"logreg": LogisticRegression, "majority": DummyClassifier, "svm_rbf": CalibratedSVC,
+            "random_forest": RandomForestClassifier, "xgboost": EarlyStoppingXGB, "logreg_fs": ForwardSelectLR}
 RULES = {"b0pers": persistence_predictions,     # mô hình theo luật: không fit, không tune
          "b0rev": reversal_predictions}         # tham số trong configs/models/{b0pers,b0rev}.yaml
 RULE_FUNCS = {"persistence": persistence_predictions, "reversal": reversal_predictions}
@@ -198,7 +200,7 @@ def run_rule(name, data, folds, target=TARGET) -> pd.DataFrame:
 
 
 def register(name, cls):
-    """Thêm mô hình mới, ví dụ register("rf", RandomForestClassifier), rồi tạo configs/models/rf.yaml."""
+    """Thêm thuật toán mới, ví dụ register("extra_trees", ExtraTreesClassifier), rồi tạo configs/models/<mã>.yaml với class: extra_trees."""
     if name in REGISTRY and REGISTRY[name] is not cls:
         raise ValueError(f"Tên mô hình '{name}' đã được đăng ký.")
     REGISTRY[name] = cls
@@ -212,7 +214,7 @@ def load_model(name):
     cfg = yaml.safe_load(path.read_text())
     if cfg.get("class") not in REGISTRY:
         raise ValueError(f"'{name}' (class: {cfg.get('class')}) không chạy qua load_model: luật B0 dùng run_rule, "
-                         f"lrt dùng lr_tuning.py.")
+                         f"b1t dùng b1t_tuning.py.")
     return REGISTRY[cfg["class"]](**(cfg.get("params") or {})), cfg.get("param_grid") or {}
 
 
@@ -229,7 +231,7 @@ def _tests():
     assert isinstance(est, CalibratedSVC) and set(grid) == {"C", "gamma"}
     assert isinstance(load_model("b0maj")[0], DummyClassifier)
     _raises(lambda: load_model("khong_co"), "Chưa có config")
-    _raises(lambda: register("lr", SVC), "đã được đăng ký")
+    _raises(lambda: register("logreg", SVC), "đã được đăng ký")
 
     # 1b) Quy ước tên: mọi config có baseline (B0–B5) và tuning; hậu tố "t" <=> đã tune lại (retuned)
     for path in sorted((CONFIG_DIR / "models").glob("*.yaml")):
@@ -266,8 +268,8 @@ def _tests():
     pd.testing.assert_frame_equal(run_rule("b0rev", m, folds[:5]), rev)
     pd.testing.assert_frame_equal(run_rule("b0pers", m, folds[:5]), res)
     _raises(lambda: load_model("b0rev"), "không chạy qua load_model")
-    _raises(lambda: load_model("lrt"), "không chạy qua load_model")
-    _raises(lambda: run_rule("lr", m, folds[:5]), "không phải luật")
+    _raises(lambda: load_model("b1t"), "không chạy qua load_model")
+    _raises(lambda: run_rule("b1", m, folds[:5]), "không phải luật")
     #     Chuỗi đảo chiều hoàn hảo trong train thì luật lật chiều và đúng 100% trên test
     alt = m.copy()
     alt[CLOSE] = 100 * np.where(np.arange(len(alt)) % 2, 1.1, 1.0)
@@ -275,14 +277,14 @@ def _tests():
     r = reversal_predictions(alt, folds[:2])
     assert ((r["p_hat"] > 0.5) == r["y_true"]).all()
 
-    # 3c) lrfs: luôn giữ cột đầu; bắt được cột có tín hiệu; bỏ cột nhiễu; tune được C qua walk-forward
+    # 3c) b1fs: luôn giữ cột đầu; bắt được cột có tín hiệu; bỏ cột nhiễu; tune được C qua walk-forward
     rng = np.random.default_rng(1)
     Xs = rng.normal(size=(700, 6))
     ys = (0.8 * Xs[:, 3] + rng.normal(0, 1, 700) > 0).astype(int)
     fs = ForwardSelectLR().fit(Xs, ys)
     assert fs.support_[0] == 0 and 3 in fs.support_ and len(fs.support_) <= 3
     assert fs.predict_proba(Xs).shape == (700, 2)
-    est, grid = load_model("lrfs")
+    est, grid = load_model("b1fs")
     assert isinstance(est, ForwardSelectLR) and set(grid) == {"C"}
     res_fs = run_walkforward(m, ["cm_AdrActCnt", "cm_TxCnt", "cm_HashRate"], est, folds[:2], param_grid={"C": [0.1, 1]})
     assert res_fs["p_hat"].between(0, 1).all() and res_fs["fold"].nunique() == 2

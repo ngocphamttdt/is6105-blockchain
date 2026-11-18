@@ -91,7 +91,7 @@ Mở `notebooks/eda.ipynb` bằng Jupyter hoặc VS Code từ thư mục `notebo
 1. ~~Quy ước "trễ 1 ngày"~~: đã khớp. `logret_lag1` = `ret_1` của Ngọc = return của chính ngày t.
 2. ~~Độ trễ công bố On-chain~~: đã xử lý trong pipeline Ngọc (`shift_days: 1`).
 3. **Ngày thiếu nến:** `dlog_volume` rất lớn ở 2018-02-08 và 2018-02-09 vì Binance ngừng giao dịch. Có giữ những ngày `ohlcv_n_bars_1h < 24` không? Hai ngày này nằm trong cửa sổ train của các fold đầu.
-4. **Bộ OHLCV cho E1 chính thức:** Δ nháp của `lr` đổi dấu (−0,45 → +0,78 điểm DA) chỉ vì đổi 7 đặc trưng tạm sang 10 đặc trưng. Nên chốt bộ OHLCV trước khi chạy E1 chính thức.
+4. **Bộ OHLCV cho E1 chính thức:** Δ nháp của `b1` đổi dấu (−0,45 → +0,78 điểm DA) chỉ vì đổi 7 đặc trưng tạm sang 10 đặc trưng. Nên chốt bộ OHLCV trước khi chạy E1 chính thức.
 5. **Tương quan mạnh phát hiện trong EDA** (Spearman trên log-diff, 2018–08/2026):
    - `cm_CapMVRVCur` với `logret_lag1`: ρ = 0,98. MVRV thay đổi gần như theo giá, nên nhóm Valuation có thể chỉ lặp lại thông tin giá. Điều này ảnh hưởng trực tiếp tới Δ của RQ1, RQ2.
    - `bc_est_tx_vol_usd` với `nvt_ratio_bc`: ρ = −1,00. NVT được tính bằng cách chia cho chính volume đó.

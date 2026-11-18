@@ -14,7 +14,7 @@ Thiết kế: `docs/superpowers/specs/2026-11-13-simple-split-design.md`.
 | Mô hình | Trước tune | Grid sau tune | Seed |
 |---|---|---|---|
 | B0: Majority, Persistence, Buy-and-hold, Đảo chiều | – | – | – |
-| LR (Vi) | C = 1, L2, 10 đặc trưng | 300 tổ hợp của `lr_tuning.py` | tất định |
+| LR (Vi) | C = 1, L2, 10 đặc trưng | 300 tổ hợp của `b1t_tuning.py` | tất định |
 | SVM RBF (Trâm) | C = 1, gamma = "scale" | C × gamma 5 × 6 | tất định |
 | RF (Ngân) | sklearn mặc định, 500 cây | 24 tổ hợp `b2t.yaml` | trung bình 42, 43, 44 |
 | LSTM (Ngọc) | lookback 30, hidden 32, dropout 0, lr 1e-3 | 16 cấu hình `lstm_tuning.py` | trung bình 42, 43, 44 |

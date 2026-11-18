@@ -114,7 +114,7 @@ def score(p):
 def tables(preds, flips, n_folds):
     rev = preds["rev1"]
     steps = [("1. Luật", k, NAMES[k], p) for k, p in preds.items()]
-    ml = {"lr": "B1 LR", "b2": "B2 RF", "b3": "B3 SVM", "b4": "B4 XGB"}
+    ml = {"b1": "B1 LR", "b2": "B2 RF", "b3": "B3 SVM", "b4": "B4 XGB"}
     for k, lab in ml.items():
         f = GATE_DIR / "baseline" / f"{k}.csv"
         if f.exists():

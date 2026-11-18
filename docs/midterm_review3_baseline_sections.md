@@ -1,6 +1,6 @@
 # Bản nháp mục 5 và mục 8 (báo cáo giữa kỳ)
 
-Sinh ngày 13/11/2026 bởi `python simple_split/src/report_sections.py` từ kết quả trong `simple_split/reports/`. Chạy lại lệnh này sau mỗi lần chạy `simple_split.py`. Mọi con số lấy từ file kết quả; không có số gõ tay.
+Sinh ngày 13/11/2026 bởi `python analyses/simple_split/src/report_sections.py` từ kết quả trong `analyses/simple_split/reports/`. Chạy lại lệnh này sau mỗi lần chạy `simple_split.py`. Mọi con số lấy từ file kết quả; không có số gõ tay.
 
 ## 5. Baselines
 
@@ -32,7 +32,7 @@ Bảng 5.2. Baseline, tham số trước tune và grid sau tune
 
 ## 8. Kết quả
 
-Mọi số liệu tính trên đoạn test 2024-01-01 → 2026-08-30 (973 ngày; tỷ lệ ngày tăng 50,7%), sau khi học lại trên train + validation. Tạo bởi `simple_split/src/simple_split.py`.
+Mọi số liệu tính trên đoạn test 2024-01-01 → 2026-08-30 (973 ngày; tỷ lệ ngày tăng 50,7%), sau khi học lại trên train + validation. Tạo bởi `analyses/simple_split/src/simple_split.py`.
 
 ### 8.1. So sánh trên test, trước và sau tuning
 
@@ -62,7 +62,7 @@ Bảng 8.1. 973 ngày test. Log-loss của Persistence, Buy-and-hold, Đảo chi
 | RF | min_samples_leaf = 100; max_features = sqrt; max_samples = 0,5 | 0,6926 | 52,8 | 12/24 |
 | LSTM | lookback = 10; hidden = 32; dropout = 0; lr = 0,0001 | 0,6936 | 47,7 | 0/16 |
 
-Bảng 8.2. Bảng đầy đủ mọi tổ hợp: `simple_split/reports/tuning_<mô hình>.csv`.
+Bảng 8.2. Bảng đầy đủ mọi tổ hợp: `analyses/simple_split/reports/tuning_<mô hình>.csv`.
 
 ### 8.3. Xem trực tiếp dự báo (bản sau tune)
 
@@ -73,7 +73,7 @@ Bảng 8.2. Bảng đầy đủ mọi tổ hợp: `simple_split/reports/tuning_<
 | RF | 206 | 274 | 206 | 287 | 81,8 | 6/10 |
 | LSTM | 166 | 314 | 181 | 312 | 64,9 | 7/10 |
 
-Bảng 8.3. Ma trận nhầm lẫn, mức trùng hướng với luật Đảo chiều, và số ngày đoán đúng trong 10 ngày có return ngày mai lớn nhất (theo trị tuyệt đối). Danh sách từng ngày: `simple_split/reports/simple_split.md`, mục 3.
+Bảng 8.3. Ma trận nhầm lẫn, mức trùng hướng với luật Đảo chiều, và số ngày đoán đúng trong 10 ngày có return ngày mai lớn nhất (theo trị tuyệt đối). Danh sách từng ngày: `analyses/simple_split/reports/simple_split.md`, mục 3.
 
 ### 8.4. Nhận xét
 

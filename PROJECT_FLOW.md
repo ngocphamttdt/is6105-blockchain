@@ -31,12 +31,12 @@ Quy tắc chấp nhận H1 (ghi sẵn trong proposal): ΔDA > 0 với p < 0,05 �
 
 ```mermaid
 flowchart LR
-    A["Nguồn dữ liệu<br/>Binance · CoinMetrics · Blockchain.com"] --> B["crawl_data/<br/>Crawl, làm sạch, QA<br/>(Khoa, Vi)"]
+    A["Nguồn dữ liệu<br/>Binance · CoinMetrics · Blockchain.com"] --> B["data/raw/<br/>Crawl, làm sạch, QA<br/>(Khoa, Vi)"]
     B --> C["data/processed/<br/>Data freeze v1.0"]
-    C --> D["tram_features_backtest/<br/>10 đặc trưng OHLCV, EDA<br/>(Trâm)"]
-    C --> E["ngoc_pipeline/<br/>Nhãn y, 33 đặc trưng On-chain<br/>(Ngọc)"]
+    C --> D["features/<br/>10 đặc trưng OHLCV, EDA<br/>(Trâm)"]
+    C --> E["pipeline/<br/>Nhãn y, 33 đặc trưng On-chain<br/>(Ngọc)"]
     D --> E
-    C --> K["ngan_lstm_hmm_analysis/<br/>HMM gán regime, LSTM<br/>(Ngân)"]
+    C --> K["regime/<br/>HMM gán regime, LSTM<br/>(Ngân)"]
     E --> F["Walk-forward 82 fold<br/>× 2 cấu hình × mô hình"]
     K -- "B5 LSTM" --> F
     F --> G["results/predictions/<br/>{model}_{config}.csv"]
@@ -51,11 +51,11 @@ Mọi bảng kết quả đều tính từ các file predictions có chung đị
 
 | Bước | Thư mục | Người | Trạng thái |
 |---|---|---|---|
-| Crawl, làm sạch, QA | `crawl_data/` | Khoa, Vi | ✅ |
+| Crawl, làm sạch, QA | `data/raw/` | Khoa, Vi | ✅ |
 | Data freeze v1.0 | `data/processed/`, `src/data_freeze.py` | Khoa, Vi | ✅ |
-| Đặc trưng OHLCV, EDA, backtest | `tram_features_backtest/` | Trâm | ✅ |
-| Walk-forward, đặc trưng On-chain, mô hình, chạy E1 | `ngoc_pipeline/` | Ngọc | ✅ bản nháp |
-| HMM gán regime, B5 LSTM | `ngan_lstm_hmm_analysis/` | Ngân | ✅ (regime chưa tái lập được từ repo, xem mục 8) |
+| Đặc trưng OHLCV, EDA, backtest | `features/` | Trâm | ✅ |
+| Walk-forward, đặc trưng On-chain, mô hình, chạy E1 | `pipeline/` | Ngọc | ✅ bản nháp |
+| HMM gán regime, B5 LSTM | `regime/` | Ngân | ✅ (regime chưa tái lập được từ repo, xem mục 8) |
 | Kiểm định thống kê | | Vi | ⏳ |
 
 ---
@@ -111,7 +111,7 @@ Phương án B thay Netflow bằng hai cột FlowIn và FlowOut. Nhóm chốt A 
 
 ### 4.2 OHLCV: 10 đặc trưng
 
-Code: `tram_features_backtest/src/features_ohlcv.py` (Trâm, task 1.13). Dòng ngày t chỉ dùng dữ liệu đến hết ngày t.
+Code: `features/src/features_ohlcv.py` (Trâm, task 1.13). Dòng ngày t chỉ dùng dữ liệu đến hết ngày t.
 
 | Đặc trưng | Công thức |
 |---|---|
@@ -123,7 +123,7 @@ Code: `tram_features_backtest/src/features_ohlcv.py` (Trâm, task 1.13). Dòng n
 
 ### 4.3 On-chain: 33 đặc trưng
 
-Code: `ngoc_pipeline/src/features.py` (Ngọc, task 1.16). Mỗi chỉ số cho 3 đặc trưng, rồi dịch 1 ngày (`shift_days: 1`) để tôn trọng độ trễ công bố:
+Code: `pipeline/src/features.py` (Ngọc, task 1.16). Mỗi chỉ số cho 3 đặc trưng, rồi dịch 1 ngày (`shift_days: 1`) để tôn trọng độ trễ công bố:
 
 | Loại cột | Đặc trưng |
 |---|---|
@@ -136,15 +136,15 @@ Ngày nguồn không công bố được điền bằng giá trị trước đó
 
 ## 5. EDA
 
-Notebook: `tram_features_backtest/notebooks/eda.ipynb` (Trâm, task 1.14). Hình: `tram_features_backtest/reports/figures/`.
+Notebook: `features/notebooks/eda.ipynb` (Trâm, task 1.14). Hình: `features/reports/figures/`.
 
 | Hình | Nội dung | Điều rút ra |
 |---|---|---|
-| [`eda_01_price.png`](tram_features_backtest/reports/figures/eda_01_price.png) | Giá BTC 2018 – 08/2026 (thang log), 2 lần halving, 28 ngày thiếu nến 1h | Giai đoạn nghiên cứu có đủ chu kỳ tăng mạnh (2020–2021, 2023–2025) và giảm mạnh (2018, 2022) |
-| [`eda_02_onchain_groups.png`](tram_features_backtest/reports/figures/eda_02_onchain_groups.png) | Chuỗi 11 chỉ số On-chain theo 4 nhóm | HashRate, difficulty tăng gần như đơn điệu; MVRV và Puell dao động theo chu kỳ giá; Netflow quanh 0 |
-| [`eda_03_missing_map.png`](tram_features_backtest/reports/figures/eda_03_missing_map.png) | Bản đồ ô trống 2016–2026 | Từ 2018 gần như không thiếu dữ liệu; chỉ vài ngày lẻ của Blockchain.com |
-| [`eda_04_feature_corr.png`](tram_features_backtest/reports/figures/eda_04_feature_corr.png) | Tương quan Spearman giữa các đặc trưng | Có đặc trưng trùng thông tin (xem dưới) |
-| [`eda_05_label_balance.png`](tram_features_backtest/reports/figures/eda_05_label_balance.png) | Tỷ lệ ngày giá tăng theo năm | Dao động từ khoảng 46% (2022) đến 58% (2020) |
+| [`eda_01_price.png`](features/reports/figures/eda_01_price.png) | Giá BTC 2018 – 08/2026 (thang log), 2 lần halving, 28 ngày thiếu nến 1h | Giai đoạn nghiên cứu có đủ chu kỳ tăng mạnh (2020–2021, 2023–2025) và giảm mạnh (2018, 2022) |
+| [`eda_02_onchain_groups.png`](features/reports/figures/eda_02_onchain_groups.png) | Chuỗi 11 chỉ số On-chain theo 4 nhóm | HashRate, difficulty tăng gần như đơn điệu; MVRV và Puell dao động theo chu kỳ giá; Netflow quanh 0 |
+| [`eda_03_missing_map.png`](features/reports/figures/eda_03_missing_map.png) | Bản đồ ô trống 2016–2026 | Từ 2018 gần như không thiếu dữ liệu; chỉ vài ngày lẻ của Blockchain.com |
+| [`eda_04_feature_corr.png`](features/reports/figures/eda_04_feature_corr.png) | Tương quan Spearman giữa các đặc trưng | Có đặc trưng trùng thông tin (xem dưới) |
+| [`eda_05_label_balance.png`](features/reports/figures/eda_05_label_balance.png) | Tỷ lệ ngày giá tăng theo năm | Dao động từ khoảng 46% (2022) đến 58% (2020) |
 
 Các phát hiện ảnh hưởng tới kết quả:
 - **MVRV gần như trùng return của ngày t** (ρ = 0,98). Nhóm Valuation có thể chỉ lặp lại thông tin giá.
@@ -156,7 +156,7 @@ Các phát hiện ảnh hưởng tới kết quả:
 
 ## 6. Pipeline thực nghiệm
 
-Code và hướng dẫn chạy: [`ngoc_pipeline/README.md`](ngoc_pipeline/README.md).
+Code và hướng dẫn chạy: [`pipeline/README.md`](pipeline/README.md).
 
 ### 6.1 Walk-forward
 
@@ -187,7 +187,7 @@ Hai mô hình B0 không dùng đặc trưng nên luôn có Δ = 0; chúng là m�
 
 ### 6.3 Regime
 
-Regime (Bull, Sideways, Bear) do HMM 3 trạng thái của Ngân gán cho từng ngày test, theo cùng lịch walk-forward (`ngan_lstm_hmm_analysis/regime_hmm.py`). HMM fit lại trong mỗi fold, dùng forward filtering nên không nhìn tương lai. Pipeline đọc `regime_map.csv` và ghép vào cột `regime` của mọi file dự báo theo `date` + `fold`.
+Regime (Bull, Sideways, Bear) do HMM 3 trạng thái của Ngân gán cho từng ngày test, theo cùng lịch walk-forward (`regime/regime_hmm.py`). HMM fit lại trong mỗi fold, dùng forward filtering nên không nhìn tương lai. Pipeline đọc `regime_map.csv` và ghép vào cột `regime` của mọi file dự báo theo `date` + `fold`.
 
 | Regime | Số ngày test | Tỷ lệ ngày tăng |
 |---|---|---|
@@ -199,9 +199,9 @@ Regime (Bull, Sideways, Bear) do HMM 3 trạng thái của Ngân gán cho từng
 
 ```bash
 source .venv/bin/activate        # Python 3.14; macOS cần brew install libomp cho xgboost; b5 cần torch
-python ngoc_pipeline/src/run_all.py --stage data
-python ngoc_pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b2 b3 b4 b5    # khoảng 10 phút
-python tram_features_backtest/src/backtest.py                                          # backtest
+python pipeline/src/run_all.py --stage data
+python pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b2 b3 b4 b5    # khoảng 10 phút
+python features/src/backtest.py                                          # backtest
 ```
 
 Kết quả tái lập được: chạy lại cho file dự báo giống hệt nhau (Python 3.11 và 3.14), trừ `b2` lệch khoảng 1e-15 do cộng song song trong Random Forest.
@@ -210,7 +210,7 @@ Kết quả tái lập được: chạy lại cho file dự báo giống hệt n
 
 ## 7. Kết quả E1 (bản nháp, chạy lại 30/10/2026)
 
-Phương án Flows A, 10 đặc trưng OHLCV + 33 đặc trưng On-chain, 82 fold, 2.434 ngày test. Bảng đầy đủ: [`ngoc_pipeline/results/tables/e1_delta_draft.csv`](ngoc_pipeline/results/tables/e1_delta_draft.csv).
+Phương án Flows A, 10 đặc trưng OHLCV + 33 đặc trưng On-chain, 82 fold, 2.434 ngày test. Bảng đầy đủ: [`pipeline/results/tables/e1_delta_draft.csv`](pipeline/results/tables/e1_delta_draft.csv).
 
 ### 7.1 Độ chính xác và xác suất
 
@@ -243,7 +243,7 @@ Chiến lược long/flat: giữ BTC ngày t+1 nếu p̂ > 0,5, phí 0,1% mỗi 
 
 ### 7.3 Theo regime (sơ bộ cho E3, chưa có khoảng tin cậy)
 
-Bảng đầy đủ (DA, log-loss từng regime): [`ngoc_pipeline/results/tables/e1_by_regime_draft.csv`](ngoc_pipeline/results/tables/e1_by_regime_draft.csv).
+Bảng đầy đủ (DA, log-loss từng regime): [`pipeline/results/tables/e1_by_regime_draft.csv`](pipeline/results/tables/e1_by_regime_draft.csv).
 
 | Mô hình | ΔDA Bull (1.250 ngày) | ΔDA Sideways (902 ngày) | ΔDA Bear (282 ngày) |
 |---|---|---|---|

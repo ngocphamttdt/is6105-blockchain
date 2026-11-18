@@ -22,9 +22,9 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]  # thư mục gốc repo
-SRC_MASTER = ROOT / "crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/master_daily.csv"
-SRC_DICT = ROOT / "crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/data_dictionary.csv"
-SRC_1H = ROOT / "crawl_data/vi_ohlcv_flows/data/clean/ohlcv_1h_clean.csv"
+SRC_MASTER = ROOT / "data/raw/khoa-btc-onchain-ohlcv-daily-2016-2026/master_daily.csv"
+SRC_DICT = ROOT / "data/raw/khoa-btc-onchain-ohlcv-daily-2016-2026/data_dictionary.csv"
+SRC_1H = ROOT / "data/raw/vi_ohlcv_flows/data/clean/ohlcv_1h_clean.csv"
 PROCESSED = ROOT / "data/processed"
 VERSION = "v1.0"
 

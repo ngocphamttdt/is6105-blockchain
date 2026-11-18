@@ -10,8 +10,8 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Kết quả chạy thử (--every k) của ngoc_pipeline, không phải kết quả chính
-ngoc_pipeline/results/**/every*/
+# Kết quả chạy thử (--every k) của pipeline, không phải kết quả chính
+pipeline/results/**/every*/
 
 # Hệ điều hành, editor
 .DS_Store

@@ -24,7 +24,7 @@ Tạo bởi `analyses/tuning_summary/src/tuning_summary.py`. Chỉ đọc file d
 | B2 | tune lại | `b2 grid mở rộng (gate)` | 51,64 | 0,6951 | 0,514 | 57,0 | +0,29 [-1,97; +2,63] | -0,0227 [-0,0315; -0,0138] | -1,60 [-3,78; +0,62] |
 | B3 | chưa tune | `b3 tham số mặc định` | 49,88 | 0,6951 | 0,501 | 64,9 |  |  | -3,37 [-5,96; -0,62] |
 | B3 | grid gốc | `b3` | 50,62 | 0,7009 | 0,503 | 72,8 | +0,74 [-0,70; +2,18] | +0,0058 [+0,0003; +0,0123] | -2,63 [-5,34; +0,21] |
-| B3 | tune lại | `b3 grid 5×6` | 50,66 | 0,6959 | 0,507 | 75,4 | +0,78 [-0,62; +2,18] | +0,0008 [-0,0020; +0,0046] | -2,59 [-5,34; +0,25] |
+| B3 | tune lại | `b3t` | 50,66 | 0,6959 | 0,507 | 75,4 | +0,78 [-0,62; +2,18] | +0,0008 [-0,0020; +0,0046] | -2,59 [-5,34; +0,25] |
 | B3 | tune lại | `b3 grid mở rộng (gate)` | 50,66 | 0,7290 | 0,503 | 71,0 | +0,78 [-0,62; +2,22] | +0,0339 [+0,0089; +0,0690] | -2,59 [-5,26; +0,29] |
 | B4 | chưa tune | `b4 tham số mặc định` | 50,37 | 0,6969 | 0,510 | 60,1 |  |  | -2,88 [-5,09; -0,45] |
 | B4 | grid gốc | `b4` | 50,45 | 0,6973 | 0,502 | 62,7 | +0,08 [-1,52; +1,60] | +0,0005 [-0,0023; +0,0029] | -2,79 [-5,10; -0,41] |
@@ -48,7 +48,7 @@ Tạo bởi `analyses/tuning_summary/src/tuning_summary.py`. Chỉ đọc file d
 | B2 | tune lại | `b2t` | 49,22 | 0,6951 | 0,506 | 49,2 | -1,52 [-3,58; +0,58] | -0,0132 [-0,0195; -0,0069] | -4,03 [-6,25; -1,64] |
 | B3 | chưa tune | `b3 tham số mặc định` | 49,47 | 0,6959 | 0,495 | 61,4 |  |  | -3,78 [-6,37; -1,11] |
 | B3 | grid gốc | `b3` | 50,29 | 0,6959 | 0,498 | 64,7 | +0,82 [-0,70; +2,30] | +0,0000 [-0,0017; +0,0020] | -2,96 [-5,46; -0,45] |
-| B3 | tune lại | `b3 grid 5×6` | 49,01 | 0,6966 | 0,494 | 64,0 | -0,45 [-1,97; +1,03] | +0,0007 [-0,0015; +0,0028] | -4,23 [-6,78; -1,60] |
+| B3 | tune lại | `b3t` | 49,01 | 0,6966 | 0,494 | 64,0 | -0,45 [-1,97; +1,03] | +0,0007 [-0,0015; +0,0028] | -4,23 [-6,78; -1,60] |
 | B4 | chưa tune | `b4 tham số mặc định` | 51,44 | 0,6948 | 0,517 | 55,3 |  |  | -1,81 [-4,35; +0,90] |
 | B4 | grid gốc | `b4` | 48,97 | 0,6958 | 0,499 | 58,0 | -2,47 [-4,07; -0,99] | +0,0010 [-0,0015; +0,0036] | -4,27 [-6,78; -1,73] |
 | B5 | chưa tune | `b5` | 50,58 | 0,6959 | 0,509 | 33,4 |  |  | -2,67 [-5,42; -0,04] |
@@ -74,7 +74,7 @@ Tạo bởi `analyses/tuning_summary/src/tuning_summary.py`. Chỉ đọc file d
 - `b2 grid mở rộng (gate)`: grid mở rộng của gate.py; 10 OHLCV + winsorize 1%/99% (như E2); chỉ OHLCV. Nguồn (ví dụ cấu hình ohlcv): `pipeline/results/gate/baseline/b2.csv`
 - `b3 tham số mặc định`: tham số trong grid để ở mặc định của sklearn (experiments.py --stage tuning). Nguồn (ví dụ cấu hình ohlcv): `pipeline/results/tuning/default/b3_ohlcv.csv`
 - `b3`: dự báo E1. Nguồn (ví dụ cấu hình ohlcv): `pipeline/results/predictions/b3_ohlcv.csv`
-- `b3 grid 5×6`: C × gamma 5 × 6 (analyses/baselines, Trâm). Nguồn (ví dụ cấu hình ohlcv): `analyses/baselines/results/predictions/b3g30_ohlcv.csv`
+- `b3t`: grid C × gamma 5 × 6 của Trâm, chạy qua pipeline (run_all.py --ohlcv10); trùng b3g30 trong analyses/baselines (lệch p̂ < 1e-12). Nguồn (ví dụ cấu hình ohlcv): `pipeline/results/predictions/b3t_ohlcv.csv`
 - `b3 grid mở rộng (gate)`: grid mở rộng của gate.py; 10 OHLCV + winsorize 1%/99% (như E2); chỉ OHLCV. Nguồn (ví dụ cấu hình ohlcv): `pipeline/results/gate/baseline/b3.csv`
 - `b4 tham số mặc định`: tham số trong grid để ở mặc định của sklearn (experiments.py --stage tuning). Nguồn (ví dụ cấu hình ohlcv): `pipeline/results/tuning/default/b4_ohlcv.csv`
 - `b4`: dự báo E1. Bản chạy lại cùng grid trong pipeline/results/tuning/tuned/ lệch 312–359 ngày quyết định: XGBoost không tái lập được giữa hai lần chạy (khác máy / phiên bản). Nguồn (ví dụ cấu hình ohlcv): `pipeline/results/predictions/b4_ohlcv.csv`

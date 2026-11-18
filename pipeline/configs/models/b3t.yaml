@@ -1,0 +1,15 @@
+# B3t SVM RBF đã tune lại: grid 5 × 6 của Trâm (analyses/baselines, mã b3g30), đưa vào pipeline.
+# Grid gốc b3.yaml (3 × 3) chạm biên nhiều: C = 10 (lớn nhất) 9/14 lần ở OHLCV + On-chain, gamma = 0,1 (lớn nhất)
+# 7/14 lần ở OHLCV. Grid này mở rộng cả hai chiều. Tune như mọi mô hình: inner TimeSeriesSplit(5, gap 1) trong
+# cửa sổ train, log-loss, tune lại mỗi 6 fold; cùng grid cho hai cấu hình.
+# Chạy với 10 đặc trưng OHLCV như dự báo E1 hiện có:
+#   python pipeline/src/run_all.py --stage e1 --models b3t --ohlcv10
+# Kết quả trước / sau tune: analyses/tuning_summary/reports/tuning_summary.md
+baseline: B3
+tuning: retuned  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: svm_rbf
+params:
+  cal_splits: 3
+param_grid:
+  C: [0.01, 0.1, 1, 10, 100]
+  gamma: [0.001, 0.003, 0.01, 0.03, 0.1, 0.3]

@@ -27,11 +27,13 @@ Mã mô hình **không chứa dấu `_`**, vì file dự báo `{mã}_{config}.cs
 | **B0** | `b0maj` Majority<br>`b0pers` Persistence<br>`b0rev` Đảo chiều | | |
 | **B1** Logistic Regression | | `b1` C ∈ {0,01; 0,1; 1; 10}<br>`b1fs` + chọn đặc trưng tiến dần | `b1t` 5 tập đặc trưng × 10 mức C × L1/L2/elastic-net × class_weight (300 tổ hợp) |
 | **B2** Random Forest | | `b2` số cây × độ sâu × `min_samples_leaf` | `b2t` `min_samples_leaf` × `max_features` × `max_samples` |
-| **B3** SVM RBF | | `b3` C × gamma | |
-| **B4** XGBoost | | `b4` learning_rate × max_depth | |
-| **B5** LSTM | `b5` tham số cố định, 3 seed | | |
+| **B3** SVM RBF | | `b3` C × gamma 3 × 3 | `b3t` C × gamma 5 × 6 (grid của Trâm) |
+| **B4** XGBoost | | `b4` learning_rate × max_depth 2 × 3 | `b4t` 3 × 4, mở xuống learning_rate 0,005 và max_depth 1 (grid của Vi trong `gate.py`). **Chưa chạy** qua pipeline |
+| **B5** LSTM | `b5` tham số cố định, 3 seed | | Chưa có `b5t` (xem dưới) |
 
 "Không tune" ở B0 nghĩa là không có grid. `b0rev` vẫn chọn chiều của luật trên cửa sổ train, nhưng đó là một phần của luật chứ không phải tuning. B5 chỉ dùng early stopping trên 20% cuối cửa sổ train.
+
+**B5 đã tune nhưng chưa có trong pipeline.** Ngọc đã tune LSTM 16 cấu hình trong `analyses/lstm_tuning/`, nhưng bằng code riêng (khác `regime/model_lstm.py`) và chỉ cho OHLCV. Muốn có `b5t` thì phải chuyển code đó vào pipeline và chạy cả hai cấu hình (cần `torch`).
 
 Ngoài ra `hybrid.py` có mô hình `b1sign`: B1 chỉ dùng một đặc trưng là dấu return hôm nay. Mô hình này không có file config riêng mà dùng `b1.yaml`.
 
@@ -65,8 +67,8 @@ param_grid: {...}          # grid để tune: inner TimeSeriesSplit(5, gap 1), l
 | `logreg` | `LogisticRegression` | `b1` |
 | `logreg_fs` | `ForwardSelectLR` (LR + chọn đặc trưng tiến dần) | `b1fs` |
 | `random_forest` | `RandomForestClassifier` | `b2`, `b2t` |
-| `svm_rbf` | `CalibratedSVC` (SVM RBF + hiệu chỉnh sigmoid) | `b3` |
-| `xgboost` | `EarlyStoppingXGB` | `b4` |
+| `svm_rbf` | `CalibratedSVC` (SVM RBF + hiệu chỉnh sigmoid) | `b3`, `b3t` |
+| `xgboost` | `EarlyStoppingXGB` | `b4`, `b4t` |
 
 Ba loại không chạy qua `GridSearchCV` chung của `walkforward.py`:
 
@@ -75,6 +77,16 @@ Ba loại không chạy qua `GridSearchCV` chung của `walkforward.py`:
 | `rule` | `b0pers`, `b0rev` | `run_rule()` trong `src/models.py`. `rule:` là tên luật, `params:` là tham số của luật |
 | `logreg_elasticnet` | `b1t` | `src/b1t_tuning.py`, vì ngoài tham số mô hình còn tune cả tập đặc trưng (`feature_sets`) và có 2 tiêu chí chọn (`criteria`) |
 | (không có) | `b5` | `run_all.py`: chạy mỗi seed trong `seeds` một lần rồi lấy trung bình p̂ |
+
+## Số đặc trưng OHLCV: 10 hay 11
+
+Từ 13/11/2026, `features/src/features_ohlcv.py` có thêm `up_today` (dấu return hôm nay), và `run_all.py` mặc định dùng **11** đặc trưng OHLCV. Nhưng mọi dự báo E1 hiện có (`b0*`–`b5`, `b1t`, `b2t`, `b3t`) đều chạy với **10** đặc trưng ban đầu. Muốn thêm một mô hình mà vẫn so được với các mô hình này thì chạy với `--ohlcv10`:
+
+```bash
+python pipeline/src/run_all.py --stage e1 --models b3t --ohlcv10
+```
+
+Chạy không có `--ohlcv10` sẽ ra kết quả dùng 11 đặc trưng, không so trực tiếp được với bảng E1 hiện có.
 
 ## Kết quả trước / sau tuning
 

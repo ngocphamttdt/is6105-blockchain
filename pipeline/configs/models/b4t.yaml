@@ -1,0 +1,25 @@
+# B4t XGBoost đã tune lại: grid mở rộng của Vi (GRID_WIDE["b4"] trong pipeline/src/gate.py), đưa vào pipeline.
+# Grid gốc b4.yaml dồn về biên dưới: learning_rate = 0,01 (nhỏ nhất) 9/14 lần ở cả hai cấu hình, max_depth = 2
+# (nhỏ nhất) 6/14 lần. Grid này mở xuống learning_rate 0,005 và max_depth 1. Tham số cố định như b4.yaml.
+#
+# CHƯA CHẠY qua pipeline (chưa có predictions/b4t_*.csv). Kết quả hiện có của grid này nằm ở
+# pipeline/results/gate/baseline/b4.csv, nhưng bản đó chỉ có OHLCV và có winsorize 1%/99%, nên không giống hệt
+# bản chạy bằng config này. Lưu ý trước khi chạy:
+#   - Cần cài xgboost.
+#   - B4 không tái lập được giữa các máy / phiên bản xgboost (chạy lại cùng grid gốc lệch 312–359 ngày quyết định
+#     so với dự báo E1). Muốn so b4t với b4 công bằng thì chạy lại cả hai trên cùng một máy:
+#       python pipeline/src/run_all.py --stage e1 --models b4 b4t --ohlcv10
+baseline: B4
+tuning: retuned  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: xgboost
+params:
+  n_estimators: 1000
+  early_stopping_rounds: 50
+  subsample: 0.8
+  colsample_bytree: 0.8
+  val_frac: 0.2
+  gap: 1
+  random_state: 0
+param_grid:
+  learning_rate: [0.005, 0.01, 0.05]
+  max_depth: [1, 2, 3, 4]

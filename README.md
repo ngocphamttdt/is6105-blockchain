@@ -119,9 +119,9 @@ Tạo lại bằng `src/data_freeze.py`. Khi thấy lỗi dữ liệu thì ra ph
 | B0 | `b0maj` Majority (mức sàn log-loss)<br>`b0pers` Persistence (mức sàn DA)<br>`b0rev` Đảo chiều (chiều chọn trên train) | | |
 | B1 Logistic Regression | | `b1`<br>`b1fs` (+ chọn đặc trưng tiến dần) | `b1t` (tune cả tập đặc trưng, C, L1/L2, class_weight; chạy bằng `b1t_tuning.py`) |
 | B2 Random Forest | | `b2` | `b2t` (xem `analyses/b2_tuning/`) |
-| B3 SVM RBF | | `b3` | |
-| B4 XGBoost | | `b4` (số cây chọn bằng early stopping) | |
-| B5 LSTM | `b5` (code ở `regime/model_lstm.py`) | | |
+| B3 SVM RBF | | `b3` | `b3t` (grid 5 × 6) |
+| B4 XGBoost | | `b4` (số cây chọn bằng early stopping) | `b4t` (grid 3 × 4; config có, chưa chạy) |
+| B5 LSTM | `b5` (code ở `regime/model_lstm.py`) | | bản tune ở `analyses/lstm_tuning`, chưa vào pipeline |
 
 **`configs/`**: `walkforward.yaml` (lịch fold), `features_onchain.yaml` (bộ đặc trưng On-chain v1, dùng cho E1), `features_onchain_v2.yaml` (bộ v2, dùng cho E2).
 

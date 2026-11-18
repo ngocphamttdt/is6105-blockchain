@@ -7,7 +7,7 @@ Chỉ ĐỌC file dự báo đã có trong repo, không chạy lại mô hình. 
 Ba mức tune (trùng trường `tuning` trong pipeline/configs/models/*.yaml):
   none           không tune: luật B0, tham số mặc định của sklearn, hoặc tham số cố định (B5)
   original_grid  tune bằng grid gốc (Phụ lục C): dự báo chính thức của E1
-  retuned        đã tune lại: b1t, b2t, grid mở rộng của gate.py, grid 5×6 của Trâm, lstm_tuning của Ngọc
+  retuned        đã tune lại: b1t, b2t, b3t, grid mở rộng của gate.py, lstm_tuning của Ngọc
 
 Δ của mỗi dòng so với dòng `so_với` (bản chưa tune cùng code), CI 95% block bootstrap 15 ngày, McNemar cho DA,
 Diebold–Mariano cho log-loss. Thêm ΔDA so với luật đảo chiều b0rev (mốc khó vượt nhất).
@@ -58,8 +58,9 @@ def rows_spec():
                   "tune cả tập đặc trưng, C, L1/L2, class_weight (b1t_tuning.py --stage e1)"))
         r.append((f"b2t_{c}", "B2", c, "retuned", "b2t", P / f"predictions/b2t_{c}.csv", None, f"b2def_{c}",
                   "grid thiết kế từ dữ liệu trước 2020 (analyses/b2_tuning)"))
-        r.append((f"b3g30_{c}", "B3", c, "retuned", "b3 grid 5×6", AN / f"baselines/results/predictions/b3g30_{c}.csv",
-                  None, f"b3def_{c}", "C × gamma 5 × 6 (analyses/baselines, Trâm)"))
+        r.append((f"b3t_{c}", "B3", c, "retuned", "b3t", P / f"predictions/b3t_{c}.csv", None, f"b3def_{c}",
+                  "grid C × gamma 5 × 6 của Trâm, chạy qua pipeline (run_all.py --ohlcv10); "
+                  "trùng b3g30 trong analyses/baselines (lệch p̂ < 1e-12)"))
         r.append((f"b5_{c}", "B5", c, "none", "b5", P / f"predictions/b5_{c}.csv", None, None,
                   "dự báo E1, tham số cố định, trung bình 3 seed"))
     for b in ("b1", "b2", "b3", "b4"):

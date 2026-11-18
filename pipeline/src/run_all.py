@@ -5,6 +5,7 @@ run_all.py  –  Task 2.8 (Ngọc): chạy thí nghiệm bằng một lệnh. M�
   python pipeline/src/run_all.py --stage data                              # kiểm freeze, đặc trưng, fold trên dữ liệu thật
   python pipeline/src/run_all.py --stage e1 --models b1 b0pers b0maj b3    # E1: đủ 82 fold x 2 cấu hình
   python pipeline/src/run_all.py --stage e1 --models b3 --every 10         # chạy thử 1/10 số fold
+  python pipeline/src/run_all.py --stage e1 --models b3t --ohlcv10         # dùng 10 đặc trưng OHLCV như dự báo E1 hiện có
   python pipeline/src/run_all.py --stage regime                            # ghép lại regime vào mọi predictions
   python pipeline/src/run_all.py --stage tables                            # tính lại các bảng từ predictions
 
@@ -40,6 +41,7 @@ import walkforward
 from data import DATE, PREDICTION_COLS, RESULTS, TARGET, load_config, load_master, make_synthetic_close_1h, \
     make_synthetic_master, read_csv_dated, verify_freeze, write_csv
 from features import build_dataset
+from features_ohlcv import FEATURES_10                   # noqa: E402  (features.py thêm đường dẫn)
 from models import RULES, load_model, run_rule
 from walkforward import make_folds, run_walkforward
 
@@ -222,9 +224,18 @@ def stage_data():
         raise ValueError("Còn NaN trong giai đoạn train/test: kiểm tra dữ liệu hoặc ffill_limit.")
 
 
-def stage_e1(model_names, every=1):
+def ohlcv10_sets(sets):
+    """Bộ đặc trưng của các dự báo E1 hiện có: 10 đặc trưng OHLCV ban đầu (trước khi thêm up_today, 13/11/2026)
+    + đặc trưng On-chain. build_dataset nay trả 11 đặc trưng OHLCV; dùng hàm này khi cần so với dự báo E1 cũ."""
+    onchain = [c for c in sets["ohlcv_onchain"] if c not in sets["ohlcv"]]
+    return {"ohlcv": list(FEATURES_10), "ohlcv_onchain": list(FEATURES_10) + onchain}
+
+
+def stage_e1(model_names, every=1, ohlcv10=False):
     fe_cfg, wf_cfg = load_config("features_onchain.yaml"), load_config("walkforward.yaml")
     data, sets = build_dataset(load_master(), fe_cfg)
+    if ohlcv10:
+        sets = ohlcv10_sets(sets)
     folds = make_folds(data.loc[data[TARGET].notna(), DATE], **wf_cfg)[::every]
     print(f"Flows set {fe_cfg['flows_set']}; {len(sets['ohlcv'])} OHLCV, {len(sets['ohlcv_onchain'])} tổng; "
           f"{len(folds)} fold")
@@ -320,6 +331,9 @@ def _tests():
             assert len(seeds) == len(load_config(f"models/{LSTM}.yaml")["seeds"])
             np.testing.assert_allclose(mean["p_hat"], np.mean([s["p_hat"] for s in seeds], axis=0), rtol=1e-6)
             assert list(mean.columns) == PREDICTION_COLS and mean["p_hat"].between(0, 1).all()
+    # ohlcv10_sets: 10 đặc trưng OHLCV ban đầu, giữ nguyên phần On-chain
+    s10 = ohlcv10_sets({"ohlcv": FEATURES_10 + ["up_today"], "ohlcv_onchain": FEATURES_10 + ["up_today", "oc1", "oc2"]})
+    assert s10 == {"ohlcv": FEATURES_10, "ohlcv_onchain": FEATURES_10 + ["oc1", "oc2"]}
     print("Tất cả test run_all đều PASS")
 
 
@@ -334,6 +348,8 @@ def main(argv=None):
     ap.add_argument("--stage", choices=["data", "e0", "e1", "regime", "tables"])
     ap.add_argument("--models", nargs="+", default=["b1"])
     ap.add_argument("--every", type=int, default=1, help="chỉ chạy mỗi k fold (để chạy thử)")
+    ap.add_argument("--ohlcv10", action="store_true",
+                    help="dùng 10 đặc trưng OHLCV ban đầu (như dự báo E1 hiện có), bỏ up_today")
     ap.add_argument("--test", action="store_true", help="chỉ chạy test")
     args = ap.parse_args(argv)
     if not args.test and not args.stage:
@@ -343,7 +359,7 @@ def main(argv=None):
     if args.stage == "data":
         stage_data()
     elif args.stage == "e1":
-        stage_e1(args.models, args.every)
+        stage_e1(args.models, args.every, args.ohlcv10)
     elif args.stage == "regime":
         stage_regime()
     elif args.stage == "tables":

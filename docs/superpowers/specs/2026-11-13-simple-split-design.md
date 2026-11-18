@@ -1,4 +1,4 @@
-# Thiết kế: `simple_split/` – chạy 5 baseline trên cùng một cách chia train / validation / test
+# Thiết kế: `analyses/simple_split/` – chạy 5 baseline trên cùng một cách chia train / validation / test
 
 Ngày: 13/11/2026 · Kích thước: thay đổi nhỏ (một script mới, dùng lại code có sẵn)
 
@@ -37,12 +37,12 @@ giữ nguyên, dùng để đối chiếu sau.
 | Mô hình | "Trước tune" (đặt trước) | Grid "sau tune" | Nguồn |
 |---|---|---|---|
 | B0: Majority, Persistence, Buy-and-hold, Đảo chiều | – (không tham số; chiều đảo chọn trên train) | – | `baseline_check.rule_predictions` |
-| LR | L2, C = 1, 10 đặc trưng | 5 tập đặc trưng × C (10 giá trị) × l1_ratio {0; 0,5; 1} × class_weight {None, balanced} = 300; winsorize 1%/99% + scaler | Vi: `ElasticNetLR`, `feature_sets`, `GRID`, `CLIP_Q` trong `lr_tuning.py` |
+| LR | L2, C = 1, 10 đặc trưng | 5 tập đặc trưng × C (10 giá trị) × l1_ratio {0; 0,5; 1} × class_weight {None, balanced} = 300; winsorize 1%/99% + scaler | Vi: `ElasticNetLR`, `feature_sets`, `GRID`, `CLIP_Q` trong `b1t_tuning.py` |
 | SVM RBF | C = 1, gamma = "scale" | C {0,01; 0,1; 1; 10; 100} × gamma {0,001; 0,003; 0,01; 0,03; 0,1; 0,3} = 30 | Trâm: `CalibratedSVC` (`models.py`), `GRID_WIDE` |
 | RF | sklearn mặc định + `n_estimators` 500 | min_samples_leaf {50, 100, 150, 200} × max_features {sqrt; 0,33; 0,5} × max_samples {None; 0,5} = 24; 500 cây | Ngân: `configs/models/b2t.yaml` |
 | LSTM | lookback 30, hidden 32, dropout 0, lr 1e-3 | lookback {10, 30} × hidden {8, 32} × dropout {0; 0,2} × lr {1e-3; 1e-4} = 16 | Ngọc: `lstm_tuning.fit_predict` (early stopping trong 20% cuối phần đang học, có gap) |
 
-## Đầu ra (`simple_split/reports/`)
+## Đầu ra (`analyses/simple_split/reports/`)
 
 - `simple_split.md`:
   1. **Bảng so sánh chung** trên test (trước và sau tune của mọi mô hình + 4 luật B0).
@@ -52,7 +52,7 @@ giữ nguyên, dùng để đối chiếu sau.
   4. Lưu ý về độ tin cậy: 973 ngày test → sai số DA khoảng ±1,6 điểm.
 - `test_metrics.csv`, `tuning_<model>.csv`, `predictions_test.csv` (p̂ từng ngày của mọi mô hình).
 
-Chạy: `python simple_split/src/simple_split.py` (ước tính dưới 15 phút trên CPU), `--quick` để chạy thử.
+Chạy: `python analyses/simple_split/src/simple_split.py` (ước tính dưới 15 phút trên CPU), `--quick` để chạy thử.
 
 ## Các cách đã cân nhắc
 

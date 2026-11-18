@@ -1,0 +1,6 @@
+# B0 majority class (Ngọc, task 3.8): p̂ = tỷ lệ ngày tăng trong cửa sổ train; không tune
+baseline: B0
+tuning: none  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: majority
+params:
+  strategy: prior

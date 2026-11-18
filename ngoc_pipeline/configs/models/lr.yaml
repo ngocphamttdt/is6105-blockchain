@@ -1,6 +1,0 @@
-# B1 Logistic Regression (Trâm sở hữu; bản đầu cho pipeline mỏng 2.8)
-class: lr
-params:
-  max_iter: 1000
-param_grid:
-  C: [0.01, 0.1, 1, 10]

@@ -1,0 +1,16 @@
+# B4 XGBoost (Khoa sở hữu, task 2.1; bản chạy thử của Ngọc): grid learning rate, độ sâu;
+# số cây chọn bằng early stopping trên 20% cuối cửa sổ train (tối đa n_estimators)
+baseline: B4
+tuning: original_grid  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: xgboost
+params:
+  n_estimators: 1000
+  early_stopping_rounds: 50
+  subsample: 0.8
+  colsample_bytree: 0.8
+  val_frac: 0.2
+  gap: 1
+  random_state: 0
+param_grid:
+  learning_rate: [0.01, 0.05]
+  max_depth: [2, 3, 4]

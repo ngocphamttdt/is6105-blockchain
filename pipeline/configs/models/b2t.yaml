@@ -1,0 +1,19 @@
+# B2t Random Forest (B2 đã tuning) – grid (thiết kế CHỈ từ inner CV trên cửa sổ train fold 0, 2017-12-31 → 2019-12-30,
+# trước ngày test đầu tiên; xem analyses/b2_tuning/results/explore_pre2020_grid.csv). Cùng grid cho cả hai cấu hình.
+# - n_estimators cố định 500: với RF, thêm cây không gây overfit, chỉ giảm phương sai; tune nó chỉ tốn thời gian.
+# - max_depth không giới hạn: khi lá lớn, độ sâu không còn tác dụng (cv log-loss giống hệt nhau ở 3, 6, None).
+# - min_samples_leaf mở rộng lên 200: grid cũ {20, 50} luôn chọn 50 (chạm biên) ở cả 14 lần tune của OHLCV.
+# - max_features: 0,33 tốt hơn sqrt ở cấu hình On-chain trên dữ liệu trước 2020.
+# - max_samples 0,5: mỗi cây chỉ thấy nửa cửa sổ train, cây ít tương quan hơn.
+baseline: B2
+tuning: retuned  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: random_forest
+params:
+  n_estimators: 500
+  max_depth: null
+  n_jobs: -1
+  random_state: 0
+param_grid:
+  min_samples_leaf: [50, 100, 150, 200]
+  max_features: [sqrt, 0.33, 0.5]
+  max_samples: [null, 0.5]

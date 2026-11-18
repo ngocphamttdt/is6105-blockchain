@@ -4,7 +4,7 @@
 
 **Goal:** Một script chạy B0, LR, SVM RBF, RF, LSTM trên cùng cách chia train/val/test, tune trên validation, test 1 lần, xem trực tiếp dự báo, ra một báo cáo so sánh.
 
-**Architecture:** `simple_split/src/simple_split.py` dùng lại `baseline_check` (dữ liệu, chia, metric, luật B0), estimator của từng người (`lr_tuning.ElasticNetLR`, `models.CalibratedSVC`, `RandomForestClassifier`, `lstm_tuning.fit_predict`). Một hàm tune chung nhận "hàm học → p̂" cho mỗi tổ hợp, nên mọi mô hình đi qua đúng một vòng chọn tham số.
+**Architecture:** `analyses/simple_split/src/simple_split.py` dùng lại `baseline_check` (dữ liệu, chia, metric, luật B0), estimator của từng người (`b1t_tuning.ElasticNetLR`, `models.CalibratedSVC`, `RandomForestClassifier`, `lstm_tuning.fit_predict`). Một hàm tune chung nhận "hàm học → p̂" cho mỗi tổ hợp, nên mọi mô hình đi qua đúng một vòng chọn tham số.
 
 **Tech Stack:** Python 3, pandas, numpy, scikit-learn, scipy, torch (LSTM), tabulate. Test theo quy ước của repo: hàm `_tests()` gọi bằng `--test` (repo không dùng pytest).
 
@@ -17,9 +17,9 @@
 - Chọn tham số: min log-loss validation, làm tròn 4 chữ số, hoà thì tổ hợp đứng trước trong grid (grid xếp từ đơn giản đến phức tạp).
 - Mô hình cuối học trên train + val; test chỉ được đọc ở bước chấm cuối.
 - Seed: RF và LSTM dùng `SEEDS = [42, 43, 44]`, p̂ trung bình 3 seed ở mọi lần học. B0, LR, SVM không seed.
-- Grid: LR = `lr_tuning.GRID` × `lr_tuning.feature_sets(FEATURES_10)` + winsorize `CLIP_Q`; SVM = `{"C": [0.01, 0.1, 1, 10, 100], "gamma": [0.001, 0.003, 0.01, 0.03, 0.1, 0.3]}`; RF = `b2t.yaml` param_grid, 500 cây, max_depth None; LSTM = `lstm_tuning.GRID`.
+- Grid: LR = `b1t_tuning.GRID` × `b1t_tuning.feature_sets(FEATURES_10)` + winsorize `CLIP_Q`; SVM = `{"C": [0.01, 0.1, 1, 10, 100], "gamma": [0.001, 0.003, 0.01, 0.03, 0.1, 0.3]}`; RF = `b2t.yaml` param_grid, 500 cây, max_depth None; LSTM = `lstm_tuning.GRID`.
 - "Trước tune": LR `ElasticNetLR(C=1, l1_ratio=0)` trên 10 đặc trưng, không winsorize; SVM `CalibratedSVC(C=1, gamma="scale")`; RF `RandomForestClassifier(n_estimators=500)`; LSTM `lstm_tuning.DEFAULT`.
-- Không sửa file của người khác; chỉ tạo `simple_split/`.
+- Không sửa file của người khác; chỉ tạo `analyses/simple_split/`.
 
 ## Review Focus
 
@@ -34,7 +34,7 @@
 ### Task 1: Khung, chia dữ liệu, B0 và vòng tune chung
 
 **Files:**
-- Create: `simple_split/src/simple_split.py`, `simple_split/README.md`
+- Create: `analyses/simple_split/src/simple_split.py`, `analyses/simple_split/README.md`
 
 **Interfaces:**
 - Produces:
@@ -44,13 +44,13 @@
   - `rules(parts) -> dict[str, np.ndarray]`: 4 luật B0 (từ `bc.rule_predictions`, thêm "Buy-and-hold" = luôn tăng).
 
 - [ ] **Step 1: Viết `_tests()` cho Task 1**: `up_lag1` khớp `(logret_lag1 > 0)` mọi dòng; `len(parts["test"]) == 973`; `tune` trên một `fit_fn` giả (trả p̂ = params["p"]) với grid `[{"p":0.5},{"p":0.4}]` chọn đúng tổ hợp có val log-loss thấp hơn; gọi `tune` sau khi gán `parts["test"]["y"] = np.nan` vẫn ra cùng lựa chọn; DA của luật đảo chiều trên test = 0.5098 (khớp `baseline_check`, 50,98%).
-- [ ] **Step 2:** `python simple_split/src/simple_split.py --test` → FAIL (chưa có hàm).
+- [ ] **Step 2:** `python analyses/simple_split/src/simple_split.py --test` → FAIL (chưa có hàm).
 - [ ] **Step 3:** Cài các hàm ở Interfaces; CLI `--test`, `--quick` (grid rút gọn: tổ hợp đầu và cuối của mỗi grid, 1 seed), mặc định chạy đủ.
 - [ ] **Step 4:** `--test` → "Tất cả test simple_split đều PASS".
 
 ### Task 2: LR, SVM, RF
 
-**Files:** Modify `simple_split/src/simple_split.py`
+**Files:** Modify `analyses/simple_split/src/simple_split.py`
 
 **Interfaces:**
 - Consumes: `tune`, `final`, `load` (Task 1).
@@ -63,7 +63,7 @@
 
 ### Task 3: LSTM
 
-**Files:** Modify `simple_split/src/simple_split.py`
+**Files:** Modify `analyses/simple_split/src/simple_split.py`
 
 **Interfaces:**
 - Consumes: `lstm_tuning.load_full`, `lstm_tuning.fit_predict(feats, train_dates, target_sets, cfg, seed)` (đặt `lstm_tuning.COLS = FEATURES_10` trước khi gọi), `tune`, `final`.
@@ -76,15 +76,15 @@
 
 ### Task 4: Xem dự báo, báo cáo, chạy đủ
 
-**Files:** Modify `simple_split/src/simple_split.py`, `simple_split/README.md`
+**Files:** Modify `analyses/simple_split/src/simple_split.py`, `analyses/simple_split/README.md`
 
 **Interfaces:**
 - Consumes: mọi thứ ở Task 1–3, `bc.metrics`, `bc.fmt_metrics`.
-- Produces: `inspect(name: str, p: np.ndarray, test: pd.DataFrame, rev: np.ndarray) -> list[str]` (các dòng markdown); `report(...)` ghi `simple_split/reports/{simple_split.md, test_metrics.csv, tuning_<model>.csv, predictions_test.csv}`.
+- Produces: `inspect(name: str, p: np.ndarray, test: pd.DataFrame, rev: np.ndarray) -> list[str]` (các dòng markdown); `report(...)` ghi `analyses/simple_split/reports/{simple_split.md, test_metrics.csv, tuning_<model>.csv, predictions_test.csv}`.
 
 - [ ] **Step 1: Thêm vào `_tests()`**: `inspect` trên p̂ giả trả đủ 6 mục (ma trận nhầm lẫn, 10 ngày ngẫu nhiên với seed cố định, 8 ngày sai tự tin nhất, 10 ngày biến động mạnh nhất, DA theo 4 nhóm biến động, % đồng ý với luật đảo chiều); bảng so sánh có thêm cột McNemar p so với luật đảo chiều.
 - [ ] **Step 2:** `--test` → FAIL.
 - [ ] **Step 3:** Cài `inspect` và `report`. Báo cáo có: bảng so sánh (4 luật B0 + trước/sau tune của 4 mô hình), bảng tuning từng mô hình (sắp theo val log-loss, đánh dấu tổ hợp chọn), phần xem dự báo của bản sau tune mỗi mô hình, dòng lưu ý sai số ±1,6 điểm với 973 ngày. README ghi lệnh chạy và đầu ra.
 - [ ] **Step 4:** `--test` PASS, `--quick` PASS và assert `predictions_test.csv` đủ 973 dòng, không NaN.
-- [ ] **Step 5:** Chạy đủ `python simple_split/src/simple_split.py` ở nền; kiểm tra trong báo cáo: DA luật đảo chiều = 50,98%, Majority = 50,67% (khớp `baseline_check`).
+- [ ] **Step 5:** Chạy đủ `python analyses/simple_split/src/simple_split.py` ở nền; kiểm tra trong báo cáo: DA luật đảo chiều = 50,98%, Majority = 50,67% (khớp `baseline_check`).
 - [ ] **Step 6:** Không commit (người dùng đang ở nhánh `feature/midterm02`); báo kết quả và hỏi.

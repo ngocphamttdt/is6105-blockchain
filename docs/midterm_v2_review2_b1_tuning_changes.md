@@ -5,7 +5,7 @@ Ngày sửa: 13/11/2026 · Branch: `vi/b1-lr-tuning` · Theo góp ý 3 của th�
 
 ## Vì sao phải sửa
 
-Bản tune B1 cũ dùng solver `saga`. Trong sklearn 1.9, `saga` dừng sau 1 vòng khi mọi hệ số bằng 0 dù intercept chưa hội tụ, nên kết quả phụ thuộc `random_state`: chỉ đổi seed mà accuracy dao động 51,0–53,5%. B1 nay được giải tất định bằng L-BFGS-B, cùng hàm mục tiêu với sklearn (`ElasticNetLR` trong `ngoc_pipeline/src/lr_tuning.py`). Kết quả khớp `lbfgs` của sklearn (sai khác p̂ ≤ 3·10⁻⁷), và chạy lại cho file giống hệt.
+Bản tune B1 cũ dùng solver `saga`. Trong sklearn 1.9, `saga` dừng sau 1 vòng khi mọi hệ số bằng 0 dù intercept chưa hội tụ, nên kết quả phụ thuộc `random_state`: chỉ đổi seed mà accuracy dao động 51,0–53,5%. B1 nay được giải tất định bằng L-BFGS-B, cùng hàm mục tiêu với sklearn (`ElasticNetLR` trong `pipeline/src/b1t_tuning.py`). Kết quả khớp `lbfgs` của sklearn (sai khác p̂ ≤ 3·10⁻⁷), và chạy lại cho file giống hệt.
 
 B1 được tune lại cho cả hai cấu hình E1 (v1, 33 đặc trưng On-chain) theo cùng một quy trình:
 
@@ -16,12 +16,12 @@ B1 được tune lại cho cả hai cấu hình E1 (v1, 33 đặc trưng On-chai
 Tái lập:
 
 ```bash
-python ngoc_pipeline/src/lr_tuning.py --stage run      # so sánh trước/sau tuning (Bảng C.2)
-python ngoc_pipeline/src/lr_tuning.py --stage tables
-python ngoc_pipeline/src/lr_tuning.py --stage e1       # B1 tune cho E1 -> results/lr_tuning/e1/
+python pipeline/src/b1t_tuning.py --stage run      # so sánh trước/sau tuning (Bảng C.2)
+python pipeline/src/b1t_tuning.py --stage tables
+python pipeline/src/b1t_tuning.py --stage e1       # B1 tune cho E1 -> results/b1t/e1/
 ```
 
-Các file dự báo chính thức `ngoc_pipeline/results/predictions/lr_*.csv` **chưa bị ghi đè**. Các số mới của B1 trong báo cáo lấy từ `results/lr_tuning/e1/{ohlcv,ohlcv_onchain}/predictions/`.
+Các file dự báo chính thức `pipeline/results/predictions/b1_*.csv` **chưa bị ghi đè**. Các số mới của B1 trong báo cáo lấy từ `results/b1t/e1/{ohlcv,ohlcv_onchain}/predictions/`.
 
 ## Kết luận thay đổi
 
@@ -102,5 +102,5 @@ Tiểu mục mới đặt sau Bảng C.1. Phần tuning không thành mục riê
 
 ## Lưu ý cho nhóm
 
-- **Phụ lục B:** script tạo số liệu B2–B5 không có trong repo. Dòng B1 được tính bằng `ngoc_pipeline/src/experiments.py` (block bootstrap trong regime, khối 15 ngày, 2.000 mẫu). Ước lượng điểm khớp với số cũ, còn CI có thể lệch nhẹ vì là một lần rút bootstrap khác.
+- **Phụ lục B:** script tạo số liệu B2–B5 không có trong repo. Dòng B1 được tính bằng `pipeline/src/experiments.py` (block bootstrap trong regime, khối 15 ngày, 2.000 mẫu). Ước lượng điểm khớp với số cũ, còn CI có thể lệch nhẹ vì là một lần rút bootstrap khác.
 - **CI của B5 trong Bảng 8.2** (−2,38; +2,10) khác bản tính lại từ repo (−2,55; +2,18). B5 không liên quan đến thay đổi này nên được giữ nguyên.

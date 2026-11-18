@@ -31,12 +31,12 @@ Quy tắc chấp nhận H1 (ghi sẵn trong proposal): ΔDA > 0 với p < 0,05 �
 
 ```mermaid
 flowchart LR
-    A["Nguồn dữ liệu<br/>Binance · CoinMetrics · Blockchain.com"] --> B["crawl_data/<br/>Crawl, làm sạch, QA<br/>(Khoa, Vi)"]
+    A["Nguồn dữ liệu<br/>Binance · CoinMetrics · Blockchain.com"] --> B["data/raw/<br/>Crawl, làm sạch, QA<br/>(Khoa, Vi)"]
     B --> C["data/processed/<br/>Data freeze v1.0"]
-    C --> D["tram_features_backtest/<br/>10 đặc trưng OHLCV, EDA<br/>(Trâm)"]
-    C --> E["ngoc_pipeline/<br/>Nhãn y, 33 đặc trưng On-chain<br/>(Ngọc)"]
+    C --> D["features/<br/>10 đặc trưng OHLCV, EDA<br/>(Trâm)"]
+    C --> E["pipeline/<br/>Nhãn y, 33 đặc trưng On-chain<br/>(Ngọc)"]
     D --> E
-    C --> K["ngan_lstm_hmm_analysis/<br/>HMM gán regime, LSTM<br/>(Ngân)"]
+    C --> K["regime/<br/>HMM gán regime, LSTM<br/>(Ngân)"]
     E --> F["Walk-forward 82 fold<br/>× 2 cấu hình × mô hình"]
     K -- "B5 LSTM" --> F
     F --> G["results/predictions/<br/>{model}_{config}.csv"]
@@ -51,11 +51,11 @@ Mọi bảng kết quả đều tính từ các file predictions có chung đị
 
 | Bước | Thư mục | Người | Trạng thái |
 |---|---|---|---|
-| Crawl, làm sạch, QA | `crawl_data/` | Khoa, Vi | ✅ |
+| Crawl, làm sạch, QA | `data/raw/` | Khoa, Vi | ✅ |
 | Data freeze v1.0 | `data/processed/`, `src/data_freeze.py` | Khoa, Vi | ✅ |
-| Đặc trưng OHLCV, EDA, backtest | `tram_features_backtest/` | Trâm | ✅ |
-| Walk-forward, đặc trưng On-chain, mô hình, chạy E1 | `ngoc_pipeline/` | Ngọc | ✅ bản nháp |
-| HMM gán regime, B5 LSTM | `ngan_lstm_hmm_analysis/` | Ngân | ✅ (regime chưa tái lập được từ repo, xem mục 8) |
+| Đặc trưng OHLCV, EDA, backtest | `features/` | Trâm | ✅ |
+| Walk-forward, đặc trưng On-chain, mô hình, chạy E1 | `pipeline/` | Ngọc | ✅ bản nháp |
+| HMM gán regime, B5 LSTM | `regime/` | Ngân | ✅ (regime chưa tái lập được từ repo, xem mục 8) |
 | Kiểm định thống kê | | Vi | ⏳ |
 
 ---
@@ -111,7 +111,7 @@ Phương án B thay Netflow bằng hai cột FlowIn và FlowOut. Nhóm chốt A 
 
 ### 4.2 OHLCV: 10 đặc trưng
 
-Code: `tram_features_backtest/src/features_ohlcv.py` (Trâm, task 1.13). Dòng ngày t chỉ dùng dữ liệu đến hết ngày t.
+Code: `features/src/features_ohlcv.py` (Trâm, task 1.13). Dòng ngày t chỉ dùng dữ liệu đến hết ngày t.
 
 | Đặc trưng | Công thức |
 |---|---|
@@ -123,7 +123,7 @@ Code: `tram_features_backtest/src/features_ohlcv.py` (Trâm, task 1.13). Dòng n
 
 ### 4.3 On-chain: 33 đặc trưng
 
-Code: `ngoc_pipeline/src/features.py` (Ngọc, task 1.16). Mỗi chỉ số cho 3 đặc trưng, rồi dịch 1 ngày (`shift_days: 1`) để tôn trọng độ trễ công bố:
+Code: `pipeline/src/features.py` (Ngọc, task 1.16). Mỗi chỉ số cho 3 đặc trưng, rồi dịch 1 ngày (`shift_days: 1`) để tôn trọng độ trễ công bố:
 
 | Loại cột | Đặc trưng |
 |---|---|
@@ -136,15 +136,15 @@ Ngày nguồn không công bố được điền bằng giá trị trước đó
 
 ## 5. EDA
 
-Notebook: `tram_features_backtest/notebooks/eda.ipynb` (Trâm, task 1.14). Hình: `tram_features_backtest/reports/figures/`.
+Notebook: `features/notebooks/eda.ipynb` (Trâm, task 1.14). Hình: `features/reports/figures/`.
 
 | Hình | Nội dung | Điều rút ra |
 |---|---|---|
-| [`eda_01_price.png`](tram_features_backtest/reports/figures/eda_01_price.png) | Giá BTC 2018 – 08/2026 (thang log), 2 lần halving, 28 ngày thiếu nến 1h | Giai đoạn nghiên cứu có đủ chu kỳ tăng mạnh (2020–2021, 2023–2025) và giảm mạnh (2018, 2022) |
-| [`eda_02_onchain_groups.png`](tram_features_backtest/reports/figures/eda_02_onchain_groups.png) | Chuỗi 11 chỉ số On-chain theo 4 nhóm | HashRate, difficulty tăng gần như đơn điệu; MVRV và Puell dao động theo chu kỳ giá; Netflow quanh 0 |
-| [`eda_03_missing_map.png`](tram_features_backtest/reports/figures/eda_03_missing_map.png) | Bản đồ ô trống 2016–2026 | Từ 2018 gần như không thiếu dữ liệu; chỉ vài ngày lẻ của Blockchain.com |
-| [`eda_04_feature_corr.png`](tram_features_backtest/reports/figures/eda_04_feature_corr.png) | Tương quan Spearman giữa các đặc trưng | Có đặc trưng trùng thông tin (xem dưới) |
-| [`eda_05_label_balance.png`](tram_features_backtest/reports/figures/eda_05_label_balance.png) | Tỷ lệ ngày giá tăng theo năm | Dao động từ khoảng 46% (2022) đến 58% (2020) |
+| [`eda_01_price.png`](features/reports/figures/eda_01_price.png) | Giá BTC 2018 – 08/2026 (thang log), 2 lần halving, 28 ngày thiếu nến 1h | Giai đoạn nghiên cứu có đủ chu kỳ tăng mạnh (2020–2021, 2023–2025) và giảm mạnh (2018, 2022) |
+| [`eda_02_onchain_groups.png`](features/reports/figures/eda_02_onchain_groups.png) | Chuỗi 11 chỉ số On-chain theo 4 nhóm | HashRate, difficulty tăng gần như đơn điệu; MVRV và Puell dao động theo chu kỳ giá; Netflow quanh 0 |
+| [`eda_03_missing_map.png`](features/reports/figures/eda_03_missing_map.png) | Bản đồ ô trống 2016–2026 | Từ 2018 gần như không thiếu dữ liệu; chỉ vài ngày lẻ của Blockchain.com |
+| [`eda_04_feature_corr.png`](features/reports/figures/eda_04_feature_corr.png) | Tương quan Spearman giữa các đặc trưng | Có đặc trưng trùng thông tin (xem dưới) |
+| [`eda_05_label_balance.png`](features/reports/figures/eda_05_label_balance.png) | Tỷ lệ ngày giá tăng theo năm | Dao động từ khoảng 46% (2022) đến 58% (2020) |
 
 Các phát hiện ảnh hưởng tới kết quả:
 - **MVRV gần như trùng return của ngày t** (ρ = 0,98). Nhóm Valuation có thể chỉ lặp lại thông tin giá.
@@ -156,7 +156,7 @@ Các phát hiện ảnh hưởng tới kết quả:
 
 ## 6. Pipeline thực nghiệm
 
-Code và hướng dẫn chạy: [`ngoc_pipeline/README.md`](ngoc_pipeline/README.md).
+Code và hướng dẫn chạy: [`pipeline/README.md`](pipeline/README.md).
 
 ### 6.1 Walk-forward
 
@@ -177,7 +177,7 @@ Mỗi lần chạy đều chạy test trước. Các test kiểm: đặc trưng 
 |---|---|---|---|
 | `b0maj` | B0 majority: p̂ = tỷ lệ ngày tăng trong train | Ngọc | ✅ |
 | `b0pers` | B0 persistence: ngày mai cùng hướng hôm nay | Ngọc | ✅ |
-| `lr` | B1 Logistic Regression | Trâm | ✅ bản tạm của Ngọc |
+| `b1` | B1 Logistic Regression | Trâm | ✅ bản tạm của Ngọc |
 | `b2` | B2 Random Forest | Trâm | ✅ bản chạy thử của Ngọc |
 | `b3` | B3 SVM RBF, xác suất hiệu chỉnh sigmoid | Ngọc | ✅ |
 | `b4` | B4 XGBoost, early stopping trên 20% cuối cửa sổ train | Khoa | ✅ bản chạy thử của Ngọc |
@@ -187,7 +187,7 @@ Hai mô hình B0 không dùng đặc trưng nên luôn có Δ = 0; chúng là m�
 
 ### 6.3 Regime
 
-Regime (Bull, Sideways, Bear) do HMM 3 trạng thái của Ngân gán cho từng ngày test, theo cùng lịch walk-forward (`ngan_lstm_hmm_analysis/regime_hmm.py`). HMM fit lại trong mỗi fold, dùng forward filtering nên không nhìn tương lai. Pipeline đọc `regime_map.csv` và ghép vào cột `regime` của mọi file dự báo theo `date` + `fold`.
+Regime (Bull, Sideways, Bear) do HMM 3 trạng thái của Ngân gán cho từng ngày test, theo cùng lịch walk-forward (`regime/regime_hmm.py`). HMM fit lại trong mỗi fold, dùng forward filtering nên không nhìn tương lai. Pipeline đọc `regime_map.csv` và ghép vào cột `regime` của mọi file dự báo theo `date` + `fold`.
 
 | Regime | Số ngày test | Tỷ lệ ngày tăng |
 |---|---|---|
@@ -199,9 +199,9 @@ Regime (Bull, Sideways, Bear) do HMM 3 trạng thái của Ngân gán cho từng
 
 ```bash
 source .venv/bin/activate        # Python 3.14; macOS cần brew install libomp cho xgboost; b5 cần torch
-python ngoc_pipeline/src/run_all.py --stage data
-python ngoc_pipeline/src/run_all.py --stage e1 --models lr b0pers b0maj b2 b3 b4 b5    # khoảng 10 phút
-python tram_features_backtest/src/backtest.py                                          # backtest
+python pipeline/src/run_all.py --stage data
+python pipeline/src/run_all.py --stage e1 --models b1 b0pers b0maj b2 b3 b4 b5    # khoảng 10 phút
+python features/src/backtest.py                                          # backtest
 ```
 
 Kết quả tái lập được: chạy lại cho file dự báo giống hệt nhau (Python 3.11 và 3.14), trừ `b2` lệch khoảng 1e-15 do cộng song song trong Random Forest.
@@ -210,7 +210,7 @@ Kết quả tái lập được: chạy lại cho file dự báo giống hệt n
 
 ## 7. Kết quả E1 (bản nháp, chạy lại 30/10/2026)
 
-Phương án Flows A, 10 đặc trưng OHLCV + 33 đặc trưng On-chain, 82 fold, 2.434 ngày test. Bảng đầy đủ: [`ngoc_pipeline/results/tables/e1_delta_draft.csv`](ngoc_pipeline/results/tables/e1_delta_draft.csv).
+Phương án Flows A, 10 đặc trưng OHLCV + 33 đặc trưng On-chain, 82 fold, 2.434 ngày test. Bảng đầy đủ: [`pipeline/results/tables/e1_delta_draft.csv`](pipeline/results/tables/e1_delta_draft.csv).
 
 ### 7.1 Độ chính xác và xác suất
 
@@ -220,7 +220,7 @@ DA (tỷ lệ đoán đúng hướng) và AUC: cao hơn là tốt hơn. Log-loss
 |---|---|---|---|---|---|
 | `b0maj` | 0,5008 | 0 | 0,6938 | 0 | 0 |
 | `b0pers` | 0,4651 | 0 | không dùng | 0 | 0 |
-| `lr` | 0,5111 → 0,5189 | +0,0078 | 0,6953 → 0,7006 | +0,0054 | +0,0034 |
+| `b1` | 0,5111 → 0,5189 | +0,0078 | 0,6953 → 0,7006 | +0,0054 | +0,0034 |
 | `b2` | 0,5123 → 0,5140 | +0,0016 | 0,6961 → 0,6957 | −0,0005 | +0,0007 |
 | `b3` | 0,5062 → 0,5029 | −0,0033 | 0,7009 → 0,6959 | −0,0050 | −0,0045 |
 | `b4` | 0,5045 → 0,4897 | −0,0148 | 0,6973 → 0,6958 | −0,0015 | −0,0030 |
@@ -235,7 +235,7 @@ Chiến lược long/flat: giữ BTC ngày t+1 nếu p̂ > 0,5, phí 0,1% mỗi 
 | Buy-and-hold | +990% | 0,90 | −77% | 100% |
 | `b0maj` | +72% | 0,43 | −82% | 63% |
 | `b0pers` | −71% | −0,23 | −79% | 51% |
-| `lr` | +19% → +245% | 0,31 → 0,63 | −87% → −65% | 56% → 55% |
+| `b1` | +19% → +245% | 0,31 → 0,63 | −87% → −65% | 56% → 55% |
 | `b2` | +241% → +14% | 0,62 → 0,29 | −80% → −76% | 55% → 54% |
 | `b3` | +286% → +63% | 0,65 → 0,41 | −72% → −80% | 73% → 65% |
 | `b4` | −43% → −65% | 0,11 → −0,05 | −86% → −93% | 63% → 58% |
@@ -243,11 +243,11 @@ Chiến lược long/flat: giữ BTC ngày t+1 nếu p̂ > 0,5, phí 0,1% mỗi 
 
 ### 7.3 Theo regime (sơ bộ cho E3, chưa có khoảng tin cậy)
 
-Bảng đầy đủ (DA, log-loss từng regime): [`ngoc_pipeline/results/tables/e1_by_regime_draft.csv`](ngoc_pipeline/results/tables/e1_by_regime_draft.csv).
+Bảng đầy đủ (DA, log-loss từng regime): [`pipeline/results/tables/e1_by_regime_draft.csv`](pipeline/results/tables/e1_by_regime_draft.csv).
 
 | Mô hình | ΔDA Bull (1.250 ngày) | ΔDA Sideways (902 ngày) | ΔDA Bear (282 ngày) |
 |---|---|---|---|
-| `lr` | +0,0008 | +0,0166 | +0,0106 |
+| `b1` | +0,0008 | +0,0166 | +0,0106 |
 | `b2` | −0,0120 | +0,0166 | +0,0142 |
 | `b3` | −0,0064 | −0,0089 | +0,0284 |
 | `b4` | −0,0112 | −0,0288 | +0,0142 |
@@ -257,10 +257,10 @@ Bảng đầy đủ (DA, log-loss từng regime): [`ngoc_pipeline/results/tables
 
 1. **Mọi mô hình chỉ đoán đúng 49–52% số ngày**, gần như tung đồng xu. Thêm LSTM (B5) cũng không thay đổi điều này.
 2. **Không mô hình có học nào thắng mức sàn `b0maj` về log-loss** (0,6938), ở cả hai cấu hình. Xác suất mô hình đưa ra chưa tốt hơn việc luôn đoán bằng tỷ lệ ngày tăng của tập train.
-3. **On-chain không giúp một cách nhất quán.** ΔDA dương ở `lr` và `b2`, âm ở `b3`, `b4` và `b5`. Với 2.434 ngày, sai số chuẩn của DA khoảng 1 điểm %, nên hầu hết Δ nằm trong mức nhiễu.
+3. **On-chain không giúp một cách nhất quán.** ΔDA dương ở `b1` và `b2`, âm ở `b3`, `b4` và `b5`. Với 2.434 ngày, sai số chuẩn của DA khoảng 1 điểm %, nên hầu hết Δ nằm trong mức nhiễu.
 4. **`b4` có ΔDA −1,5 điểm**, hơi vượt mức nhiễu. Nhưng Δlog-loss của `b4` lại âm (On-chain tốt hơn chút), nên hai chỉ số mâu thuẫn nhau. Cần kiểm định mới kết luận được.
 5. **Theo quy tắc chọn mô hình ghi sẵn**, mô hình có log-loss thấp nhất ở cấu hình đầy đủ là `b2` (0,6957), sát với `b4` (0,6958), `b3` và `b5` (0,6959). ΔDA của `b2` chỉ +0,16 điểm, nên khó có khả năng đạt p < 0,05 để chấp nhận H1.
-6. **Δ rất nhạy với bộ đặc trưng OHLCV.** Khi đổi từ 7 đặc trưng tạm sang 10 đặc trưng, ΔDA của `lr` đổi dấu từ −0,45 thành +0,78 điểm.
+6. **Δ rất nhạy với bộ đặc trưng OHLCV.** Khi đổi từ 7 đặc trưng tạm sang 10 đặc trưng, ΔDA của `b1` đổi dấu từ −0,45 thành +0,78 điểm.
 7. **Không mô hình nào thắng buy-and-hold.** Xếp hạng theo lợi nhuận khác xếp hạng theo DA, vì lời lỗ phụ thuộc vào việc đoán đúng những ngày giá biến động mạnh. `b5` + On-chain chỉ giữ BTC 33% số ngày mà lời +192% với MDD −56%, nhưng DA không đổi, nên có thể là may mắn về thời điểm.
 8. **`b3` lệch về phía "tăng".** Ở cấu hình OHLCV-only, `b3` giữ BTC 73% số ngày, trong khi chỉ 51% số ngày test là ngày tăng.
 9. **Theo regime, chiều của Δ ngược với H3.** ΔDA ở Bear dương với cả 5 mô hình có học (+1,1 đến +2,8 điểm), còn ở Bull âm với 4/5 mô hình. H3 dự kiến Δ ở Bull lớn hơn ở Bear. Tuy nhiên Bear chỉ có 282 ngày (sai số chuẩn của DA khoảng 3 điểm), nên cần CI bootstrap và placebo của E3 trước khi kết luận.

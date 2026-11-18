@@ -1,0 +1,8 @@
+# B0 Persistence (Ngọc, task 3.8): ngày mai cùng hướng hôm nay, p̂_t = 1[close_t > close_{t−1}].
+# Luật, không fit, không tune: chạy qua models.RULES, không qua GridSearchCV.
+# p̂ chỉ là 0/1 nên log-loss và Brier không có nghĩa (để trống trong bảng); dùng làm mức sàn cho DA.
+baseline: B0
+tuning: none  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: rule
+rule: persistence
+params: {}

@@ -1,0 +1,9 @@
+# B0 Đảo chiều (baseline_check, đề xuất 1): ngày mai ngược hướng hôm nay, p̂_t = 1 − 1[close_t > close_{t−1}].
+# Chiều của luật chọn lại trên từng cửa sổ train: nếu persistence đúng < flip_below trong train thì đảo chiều,
+# ngược lại giữ persistence. Không dùng ngày test nào. Mọi mô hình có học phải được so với luật này.
+baseline: B0
+tuning: none  # none: không tune | original_grid: tune bằng grid gốc (Phụ lục C) | retuned: đã tune lại (hậu tố t)
+class: rule
+rule: reversal
+params:
+  flip_below: 0.5      # tỷ lệ đúng của persistence trong cửa sổ train; dưới mức này thì đảo chiều

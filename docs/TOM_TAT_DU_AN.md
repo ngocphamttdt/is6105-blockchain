@@ -1,7 +1,7 @@
 # Tóm tắt dự án C1: Dự báo hướng giá Bitcoin bằng dữ liệu On-chain theo chế độ thị trường
 
 **Môn:** IS6105 Công nghệ Blockchain · **Nhóm 1:** BLOCK&ROLL (Ngọc, Vi, Khoa, Ngân, Trâm) · **GVHD:** Trần Hưng Nghiệp
-**Nguồn tóm tắt:** báo cáo giữa kỳ `Blockchain-Group01-C1-OnchainBitcoinForecast-Midterm1.pdf`, `PROJECT_FLOW.md` và các file kết quả trong `ngoc_pipeline/results/`.
+**Nguồn tóm tắt:** báo cáo giữa kỳ `Blockchain-Group01-C1-OnchainBitcoinForecast-Midterm1.pdf`, `PROJECT_FLOW.md` và các file kết quả trong `pipeline/results/`.
 
 ---
 
@@ -87,11 +87,11 @@ Danh sách chốt **trước khi huấn luyện**, chỉ dựa trên related wor
 
 ```
 Binance · CoinMetrics · Blockchain.com
-  → crawl_data/ (crawl, làm sạch, QA)            [Khoa, Vi]
+  → data/raw/ (crawl, làm sạch, QA)            [Khoa, Vi]
   → data/processed/ (data freeze v1.0)            [Khoa, Vi]
-  → tram_features_backtest/ (10 đặc trưng OHLCV, EDA, backtest)   [Trâm]
-  → ngoc_pipeline/ (nhãn, 33 đặc trưng On-chain, walk-forward, mô hình) [Ngọc]
-  → ngan_lstm_hmm_analysis/ (HMM gán regime, LSTM)                [Ngân]
+  → features/ (10 đặc trưng OHLCV, EDA, backtest)   [Trâm]
+  → pipeline/ (nhãn, 33 đặc trưng On-chain, walk-forward, mô hình) [Ngọc]
+  → regime/ (HMM gán regime, LSTM)                [Ngân]
   → results/predictions/{model}_{config}.csv (date, fold, y_true, p_hat, regime)
   → bảng Δ, Δ theo regime, backtest, kiểm định thống kê            [Vi]
 ```

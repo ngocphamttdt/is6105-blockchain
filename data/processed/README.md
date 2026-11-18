@@ -1,6 +1,6 @@
 # Dữ liệu đóng băng v1.0 (data freeze)
 
-Đây là **dữ liệu chính thức** của đề tài. Mọi đặc trưng, mô hình và thí nghiệm (E0–E4) **chỉ đọc từ thư mục này**, không đọc từ `crawl_data/`.
+Đây là **dữ liệu chính thức** của đề tài. Mọi đặc trưng, mô hình và thí nghiệm (E0–E4) **chỉ đọc từ thư mục này**, không đọc từ `data/raw/`.
 
 - Phiên bản: **v1.0** (28/10/2026). Lịch sử thay đổi: [`CHANGELOG.md`](../../CHANGELOG.md).
 - Tạo lại: `/opt/miniconda3/bin/python src/data_freeze.py` (chạy test trước, rồi ghi file).
@@ -62,7 +62,7 @@ Nhóm Flows có ba chỉ số về dòng BTC vào và ra khỏi các sàn giao d
 | Ưu điểm | Gọn. Một ý dễ giải thích: "BTC vào sàn nhiều hơn ra thì có áp lực bán". Flows không có nhiều cột hơn các nhóm khác | Giữ cả quy mô dòng tiền: vào 100 ra 90 khác vào 10.000 ra 9.990. **Mọi cột đều dương**, nên dùng chung một công thức biến đổi |
 | Nhược điểm | **Netflow âm ở 48,2% số ngày** (từ 2018, nhỏ nhất −52.318, lớn nhất +88.036 BTC), nên **không tính được log-diff và MA7/MA30**. Chỉ dùng được z-score 90 ngày hoặc sai phân thường (x_t − x_{t−1}) | Thêm một chỉ số. In và Out tương quan khá cao với nhau (0,85 trên chuỗi đã sai phân) |
 
-Báo cáo QA (`crawl_data/vi_ohlcv_flows/reports/qa_report_ohlcv_flows.md`) đề xuất **A**. Khi nhóm chốt:
+Báo cáo QA (`data/raw/vi_ohlcv_flows/reports/qa_report_ohlcv_flows.md`) đề xuất **A**. Khi nhóm chốt:
 1. Ghi quyết định vào mục "Đề xuất chốt 1.19" của báo cáo QA.
 2. Ra bản v1.1: giữ đúng một dictionary, đổi tên thành `data_dictionary.csv`, điền `flows_set_chosen` trong `MANIFEST.json`, ghi vào `CHANGELOG.md`.
 
@@ -91,7 +91,7 @@ master = pd.read_csv("data/processed/master_daily.csv", parse_dates=["date"]).se
 Các giá trị khác của `role`:
 - `role = input`: cột có trong master nhưng **không phải đặc trưng**. Gồm `cm_IssTotUSD`, `cm_CapMrktCurUSD`, `cm_IssTotNtv`, `cm_PriceUSD` (dùng để tính Puell, NVT hoặc đối chiếu), cộng với các cột Flows không thuộc phương án đang dùng.
 - `role = key`: `date`.
-- Các cột `ohlcv_*`: dùng để tạo nhãn y và đặc trưng OHLCV (xem `tram_features_backtest/`), không đưa thẳng vào mô hình.
+- Các cột `ohlcv_*`: dùng để tạo nhãn y và đặc trưng OHLCV (xem `features/`), không đưa thẳng vào mô hình.
 - Dòng `status = dropped` không có trong master. Cột `reason` giải thích lý do bị loại.
 
 ## Lưu ý bắt buộc khi dùng
@@ -244,8 +244,8 @@ Nếu muốn chắc chắn hơn, mà không sửa dữ liệu, có hai cách:
 | Tự tính | `puell_multiple`, `nvt_ratio_bc`, `cm_NetflowExNtv` | Theo nguồn gốc |
 
 Chi tiết cách thu thập và làm sạch:
-- `crawl_data/khoa-btc-onchain-ohlcv-daily-2016-2026/README.md` (Khoa);
-- `crawl_data/vi_ohlcv_flows/README.md` (Vi).
+- `data/raw/khoa-btc-onchain-ohlcv-daily-2016-2026/README.md` (Khoa);
+- `data/raw/vi_ohlcv_flows/README.md` (Vi).
 
 ## Kiểm tra đúng phiên bản
 

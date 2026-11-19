@@ -3,7 +3,8 @@ walkforward.py  –  Task 1.15 (Ngọc): walk-forward chống rò rỉ.
 
 Protocol: train trượt 730 ngày, test 30 ngày, bước 30 ngày, test 01/2020 – 08/2026 (82 fold).
 - Bỏ gap_days = 1 ngày giữa train và test: nhãn ngày t dùng close ngày t+1, nên nếu train kết thúc ngay
-  trước test thì nhãn ngày train cuối đã chứa giá của ngày test đầu tiên.
+  trước test thì nhãn ngày train cuối chứa giá đóng cửa của ngày test đầu tiên. Với dự báo 1 ngày, gap là
+  biên an toàn thêm chứ không bắt buộc: giá đó đã biết lúc dự báo cho chính ngày test đầu (cuối ngày t₀).
 - Scaler nằm trong sklearn Pipeline nên được fit lại trong từng cửa sổ train và từng inner fold.
 - Tune bằng GridSearchCV trên TimeSeriesSplit(5, gap=1), tiêu chí log-loss, tune lại mỗi 6 fold.
 - Output: DataFrame 5 cột date, fold, y_true, p_hat, regime (regime để trống, Ngân điền).

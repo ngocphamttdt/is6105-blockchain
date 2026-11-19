@@ -1,9 +1,0 @@
-# Walk-forward protocol (proposal mục 4, task 1.15)
-train_days: 730        # độ nhạy 4.5: 365, 1095
-test_days: 30
-step_days: 30
-gap_days: 1            # nhãn ngày train cuối dùng close ngày test đầu -> bỏ 1 ngày (biên an toàn; với dự báo 1 ngày không bắt buộc)
-test_start: "2020-01-01"
-test_end: "2026-08-31"
-inner_splits: 5        # inner time-series CV để tune
-retune_every: 6        # tune lại mỗi 6 fold, tiêu chí log-loss

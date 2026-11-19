@@ -120,7 +120,7 @@ Mỗi người có thể chạy mô hình của mình riêng. Bảng Δ luôn t�
 |---|---|---|
 | Đặc trưng dùng dữ liệu tương lai | Chỉ dùng `diff` và `rolling` lùi. `ffill` chỉ lấy quá khứ, tối đa 3 ngày | `features.py` (2), (6): sửa dữ liệu sau mốc cut thì đặc trưng đến cut không đổi |
 | On-chain công bố trễ | `shift_days: 1`: dòng t mang On-chain của ngày t−1. OHLCV vẫn dùng đến hết ngày t | `features.py` (3) |
-| Nhãn ngày train cuối chứa giá ngày test đầu | Gap 1 ngày giữa train và test, cả trong inner CV | `walkforward.py` (1), (4) |
+| Nhãn ngày train cuối dùng giá đóng cửa của ngày test đầu | Gap 1 ngày giữa train và test, cả trong inner CV. Với dự báo 1 ngày, gap là biên an toàn thêm chứ không bắt buộc: dự báo cho ngày test đầu t₀ được đưa ra lúc cuối ngày t₀, khi giá đóng cửa ngày t₀ (và do đó nhãn của ngày t₀−1) đã biết. Gap chỉ bỏ 1 ngày train mỗi fold, không làm sai kết quả | `walkforward.py` (1), (4) |
 | Scaler hoặc tuning thấy test | StandardScaler nằm trong Pipeline; GridSearchCV nhận Pipeline | `walkforward.py` (3): nhân dữ liệu test lên 1.000 lần, dự báo vẫn khớp pipeline chỉ fit trên train |
 | Persistence nhìn ngày mai | p̂_t = 1[close_t > close_{t−1}] | `models.py` (3) |
 | Dùng nhầm phiên bản dữ liệu | So sha256 với `MANIFEST.json` | `data.py` (1), (3) |
@@ -163,7 +163,7 @@ Thêm mô hình mới:
 2. Tạo `configs/models/rf.yaml` gồm `class`, `params`, `param_grid`.
 3. Chạy `--stage e1 --models rf`.
 
-## Kết quả E1 nháp (chạy lại 30/10/2026)
+## Kết quả E1 nháp (chạy lại 30/10/2026; B0–B3 kiểm lại 19/11/2026)
 
 Phương án A, 10 đặc trưng OHLCV của Trâm, 2.434 ngày test. DA và AUC: cao hơn là tốt hơn. Log-loss và Brier: thấp hơn là tốt hơn.
 
@@ -180,14 +180,36 @@ Phương án A, 10 đặc trưng OHLCV của Trâm, 2.434 ngày test. DA và AUC
 | `b5` (3 seed) | 0,5074 → 0,5058 | −0,0016 | 0,6950 → 0,6959 | +0,0009 |
 
 - Mọi mô hình chỉ đoán đúng 49–52% số ngày.
-- Không mô hình có học nào có log-loss thấp hơn mức sàn `b0maj` (0,6938), ở cả hai cấu hình. Xác suất của mô hình chưa tốt hơn việc luôn đoán tỷ lệ ngày tăng của tập train.
-- Với 2.434 ngày, sai số chuẩn của DA khoảng 1 điểm % (ước lượng thô), nên các Δ ở trên nằm trong mức nhiễu. Riêng `b4` có ΔDA −1,5 điểm, hơi vượt mức đó, nhưng Δlog-loss của nó lại âm (On-chain tốt hơn chút), nên chưa đủ để nói On-chain làm `b4` tệ đi. Cần kiểm định của Vi.
+- Ở cấu hình OHLCV + On-chain, không mô hình có học nào có log-loss thấp hơn mức sàn `b0maj` (0,6938). Ở cấu hình chỉ OHLCV, chỉ `b1fs` (0,6933) thấp hơn, và chỉ rất ít. Xác suất của mô hình gần như chưa tốt hơn việc luôn đoán tỷ lệ ngày tăng của tập train.
+- Với 2.434 ngày, sai số chuẩn của DA khoảng 1 điểm % (ước lượng thô), nên các Δ ở trên nằm trong mức nhiễu. Riêng `b4` có ΔDA −1,5 điểm, hơi vượt mức đó, nhưng Δlog-loss của nó lại âm (On-chain tốt hơn chút), nên chưa đủ để nói On-chain làm `b4` tệ đi. Kiểm định cho B1–B3: xem mục "Kiểm lại B0–B3" bên dưới.
 - Δ đổi dấu giữa các mô hình: ΔDA dương ở `b1`, `b2`, âm ở `b3`, `b4`, `b5`. Không có xu hướng chung nào.
 - Theo quy tắc ghi sẵn (mô hình tốt nhất là mô hình có log-loss thấp nhất ở cấu hình OHLCV + On-chain), mô hình tốt nhất là `b2` (0,6957), sát với `b4` (0,6958), `b3` và `b5` (0,6959). ΔDA của `b2` chỉ +0,16 điểm.
 - Δ rất nhạy với bộ OHLCV: với 7 đặc trưng tạm (bản 28/10), ΔDA của `b1` là −0,0045; đổi sang 10 đặc trưng thì thành +0,0078.
 - `b0pers` dưới 50%: trong giai đoạn 2020–2026, hướng giá ngày mai hay ngược với hôm nay.
 - `b3` cấu hình OHLCV-only có log-loss tệ hơn mức sàn `b0maj`. Có những ngày mô hình quá tự tin (p̂ tới 0,987); cần xem lại theo từng fold.
 - Tỷ lệ ngày tăng đổi mạnh theo năm, từ khoảng 46% (2022) đến 58% (2020) ([`eda_05_label_balance.png`](../features/reports/figures/eda_05_label_balance.png)). Vì vậy DA của từng fold nên so với tỷ lệ tăng của chính giai đoạn đó, không so với 0,5.
+
+### Kiểm lại B0–B3 (19/11/2026)
+
+Chạy lại toàn bộ E1 cho 10 mô hình B0–B3 (`b0maj`, `b0pers`, `b0rev`, `b1`, `b1fs`, `b1t`, `b2`, `b2t`, `b3`, `b3t`) bằng đúng code hiện có, 10 đặc trưng OHLCV + 33 On-chain v1, rồi kiểm định Δ bằng `stats.py`. Kết quả nằm riêng trong [`results/rerun_2026-11-19/`](results/rerun_2026-11-19/report.md), không đè `results/predictions/`. Chạy lại bằng `src/rerun_e1.py`, `src/rerun_tables.py`, `src/rerun_figures.py`.
+
+- **Tái lập được.** 16/20 file dự báo khớp bản cũ (lệch p̂ < 1e-7). `b2`, `b3` lệch nhỏ (p̂ tối đa 0,0017 và 0,0029), nhiều khả năng do khác phiên bản thư viện; chỉ 1 ngày đổi quyết định (`b2` +On-chain: DA 0,5140 → 0,5144). Bảng trên giữ số của lần chạy 30/10.
+- Bảng dưới là số của lần chạy 19/11. CI 95% block bootstrap (khối 15 ngày); p Holm hiệu chỉnh trên 7 mô hình (Δ On-chain) và trên 14 phép so (so với `b0rev`, không ghi trong bảng). ΔDA tính bằng điểm %.
+
+| Mô hình | ΔDA On-chain (điểm %) [CI 95%] | p Holm | Δlog-loss [CI 95%] | p Holm | ΔDA so với `b0rev`: OHLCV / +On-chain |
+|---|---|---|---|---|---|
+| `b1` | +0,78 [−1,27; +2,92] | 1,000 | +0,0054 [+0,0012; +0,0102] | 0,179 | −2,14 / −1,36 |
+| `b1fs` | +0,45 [−1,73; +2,63] | 1,000 | +0,0036 [−0,0004; +0,0078] | 0,584 | −2,14 / −1,68 |
+| `b1t` | −2,01 [−4,23; +0,12] | 0,452 | +0,0019 [−0,0010; +0,0047] | 0,819 | −0,04 / −2,05 |
+| `b2` | +0,21 [−1,77; +2,05] | 1,000 | −0,0005 [−0,0034; +0,0025] | 1,000 | −2,01 / −1,81 |
+| `b2t` | −1,93 [−3,70; −0,16] | 0,406 | +0,0004 [−0,0024; +0,0032] | 1,000 | −2,10 / −4,03 |
+| `b3` | −0,33 [−2,05; +1,40] | 1,000 | −0,0050 [−0,0116; +0,0010] | 0,584 | −2,63 / −2,96 |
+| `b3t` | −1,64 [−3,41; +0,12] | 0,475 | +0,0007 [−0,0034; +0,0042] | 1,000 | −2,59 / −4,23 |
+
+- **Không Δ On-chain nào có ý nghĩa sau hiệu chỉnh Holm.** Hai Δ có CI không chứa 0 trước hiệu chỉnh đều theo chiều On-chain làm tệ đi: ΔDA của `b2t` và Δlog-loss của `b1`.
+- **Chưa mô hình nào vượt luật đảo chiều.** `b1t` chỉ OHLCV đạt 0,5320, gần bằng `b0rev` (0,5325), vì nó gần như tự học lại luật: ở 14 lần tune, nó chọn tập `lag1`, `sign` hoặc `lag1+sign` 12 lần, và chỉ bất đồng với `b0rev` 99/2.434 ngày.
+- **Thêm On-chain làm `b2t` và `b3t` thua luật rõ rệt:** ΔDA so với `b0rev` là −4,03 và −4,23 điểm, vẫn có ý nghĩa sau Holm (p 0,024 và 0,040).
+- **Luật đảo chiều không ổn định theo thời gian:** DA từ 0,510 đến 0,585 trong 2020–2025, nhưng chỉ 0,438 năm 2026 (242 ngày).
 
 ### Backtest
 

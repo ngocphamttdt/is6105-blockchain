@@ -167,6 +167,8 @@ Thêm mô hình mới:
 
 Phương án A, 10 đặc trưng OHLCV của Trâm, 2.434 ngày test. DA và AUC: cao hơn là tốt hơn. Log-loss và Brier: thấp hơn là tốt hơn.
 
+Các dòng "tune lại" (`b1t`, `b2t`, `b3t`; hậu tố `t`, xem [`configs/models/README.md`](configs/models/README.md)) lấy từ dự báo đã lưu trong `results/b1t/e1/` và `results/predictions/`, cùng 82 fold và cùng 10 đặc trưng OHLCV. `b4t` chưa chạy qua pipeline nên chưa có dòng.
+
 | Mô hình | DA: OHLCV → +On-chain | ΔDA | Log-loss: OHLCV → +On-chain | Δlog-loss |
 |---|---|---|---|---|
 | `b0maj` | 0,5008 | 0 | 0,6938 | 0 |
@@ -174,16 +176,19 @@ Phương án A, 10 đặc trưng OHLCV của Trâm, 2.434 ngày test. DA và AUC
 | `b0rev` | 0,5325 | 0 | không dùng | 0 |
 | `b1fs` | 0,5111 → 0,5156 | +0,0045 | 0,6933 → 0,6968 | +0,0036 |
 | `b1` | 0,5111 → 0,5189 | +0,0078 | 0,6953 → 0,7006 | +0,0054 |
+| `b1t` (tune lại) | 0,5320 → 0,5119 | −0,0201 | 0,6926 → 0,6944 | +0,0019 |
 | `b2` (thử) | 0,5123 → 0,5140 | +0,0016 | 0,6961 → 0,6957 | −0,0005 |
+| `b2t` (tune lại) | 0,5115 → 0,4922 | −0,0193 | 0,6947 → 0,6951 | +0,0004 |
 | `b3` | 0,5062 → 0,5029 | −0,0033 | 0,7009 → 0,6959 | −0,0050 |
+| `b3t` (tune lại) | 0,5066 → 0,4901 | −0,0164 | 0,6959 → 0,6966 | +0,0007 |
 | `b4` (thử) | 0,5045 → 0,4897 | −0,0148 | 0,6973 → 0,6958 | −0,0015 |
 | `b5` (3 seed) | 0,5074 → 0,5058 | −0,0016 | 0,6950 → 0,6959 | +0,0009 |
 
-- Mọi mô hình chỉ đoán đúng 49–52% số ngày.
-- Ở cấu hình OHLCV + On-chain, không mô hình có học nào có log-loss thấp hơn mức sàn `b0maj` (0,6938). Ở cấu hình chỉ OHLCV, chỉ `b1fs` (0,6933) thấp hơn, và chỉ rất ít. Xác suất của mô hình gần như chưa tốt hơn việc luôn đoán tỷ lệ ngày tăng của tập train.
+- Mọi mô hình có học chỉ đoán đúng khoảng 49–53% số ngày. Cao nhất là `b1t` chỉ OHLCV (0,5320), gần bằng `b0rev` vì nó gần như tự học lại luật đảo chiều (xem mục "Kiểm lại B0–B3").
+- Ở cấu hình OHLCV + On-chain, không mô hình có học nào có log-loss thấp hơn mức sàn `b0maj` (0,6938). Ở cấu hình chỉ OHLCV, chỉ `b1t` (0,6926) và `b1fs` (0,6933) thấp hơn, và chỉ rất ít. Xác suất của mô hình gần như chưa tốt hơn việc luôn đoán tỷ lệ ngày tăng của tập train.
 - Với 2.434 ngày, sai số chuẩn của DA khoảng 1 điểm % (ước lượng thô), nên các Δ ở trên nằm trong mức nhiễu. Riêng `b4` có ΔDA −1,5 điểm, hơi vượt mức đó, nhưng Δlog-loss của nó lại âm (On-chain tốt hơn chút), nên chưa đủ để nói On-chain làm `b4` tệ đi. Kiểm định cho B1–B3: xem mục "Kiểm lại B0–B3" bên dưới.
-- Δ đổi dấu giữa các mô hình: ΔDA dương ở `b1`, `b2`, âm ở `b3`, `b4`, `b5`. Không có xu hướng chung nào.
-- Theo quy tắc ghi sẵn (mô hình tốt nhất là mô hình có log-loss thấp nhất ở cấu hình OHLCV + On-chain), mô hình tốt nhất là `b2` (0,6957), sát với `b4` (0,6958), `b3` và `b5` (0,6959). ΔDA của `b2` chỉ +0,16 điểm.
+- Δ đổi dấu giữa các mô hình: ΔDA dương ở `b1`, `b1fs`, `b2`, âm ở `b3`, `b4`, `b5`. Ba bản tune lại (`b1t`, `b2t`, `b3t`) đều có ΔDA âm, từ −1,6 đến −2,0 điểm: tune kỹ hơn không làm On-chain có ích hơn.
+- Theo quy tắc ghi sẵn (mô hình tốt nhất là mô hình có log-loss thấp nhất ở cấu hình OHLCV + On-chain), trong các bản grid gốc, mô hình tốt nhất là `b2` (0,6957), sát với `b4` (0,6958), `b3` và `b5` (0,6959). ΔDA của `b2` chỉ +0,16 điểm. Nếu tính cả bản tune lại, thấp nhất là `b1t` (0,6944) rồi `b2t` (0,6951), nhưng cả hai đều có DA giảm khi thêm On-chain.
 - Δ rất nhạy với bộ OHLCV: với 7 đặc trưng tạm (bản 28/10), ΔDA của `b1` là −0,0045; đổi sang 10 đặc trưng thì thành +0,0078.
 - `b0pers` dưới 50%: trong giai đoạn 2020–2026, hướng giá ngày mai hay ngược với hôm nay.
 - `b3` cấu hình OHLCV-only có log-loss tệ hơn mức sàn `b0maj`. Có những ngày mô hình quá tự tin (p̂ tới 0,987); cần xem lại theo từng fold.

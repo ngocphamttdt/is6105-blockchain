@@ -25,7 +25,7 @@ from data import DATE, ROOT, read_csv_dated, write_csv
 from run_all import RULES
 
 CONFIGS = ("ohlcv", "ohlcv_onchain")
-ORDER = ["b0maj", "b0pers", "b0rev", "b1", "b1fs", "b1t", "b2", "b2t", "b3", "b3t"]
+ORDER = ["b0maj", "b0pers", "b0rev", "b1", "b1fs", "b1t", "b2", "b2t", "b3", "b3t", "b4", "b4t", "b5"]   # mô hình thiếu dự báo thì bỏ qua
 LEARNED = [m for m in ORDER if not m.startswith("b0")]
 OLD_PATH = {"b1t": "b1t/e1/{config}/predictions/b1t_{config}.csv"}
 

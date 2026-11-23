@@ -73,6 +73,17 @@ python pipeline/src/run_all.py --stage tables                           # tính 
 python pipeline/src/walkforward.py                                      # vẽ lại results/figures/walkforward.png
 ```
 
+**Ghi vào thư mục chỉ định và bỏ nhóm Flows.** `--out DIR` (tính từ gốc repo) ghi `DIR/predictions/`, `DIR/tables/` thay cho `results/`. `--no-flows` bỏ các đặc trưng nhóm Flows khỏi cấu hình `ohlcv_onchain` cho mọi mô hình. Với Flows A, đó là 6 đặc trưng của `cm_SplyExNtv` và `cm_NetflowExNtv`, còn lại 27 On-chain. Bộ `ohlcv` giữ nguyên. Cờ này bắt buộc đi kèm `--out` để không đè kết quả E1 chính. Mỗi thư mục có `feature_sets.json` ghi bộ đặc trưng đã dùng; chạy tiếp vào cùng thư mục với bộ khác (vd. lần có, lần không `--no-flows`) sẽ báo lỗi.
+
+```bash
+python pipeline/src/run_all.py --stage e1 --models b1 b2 b3 b4 b5 --no-flows --out pipeline/results/no_flows
+python pipeline/src/run_all.py --stage tables --out pipeline/results/no_flows
+# Như rerun B0–B3 (10 đặc trưng OHLCV), gồm cả b1t:
+python pipeline/src/rerun_e1.py --out pipeline/results/no_flows_rerun --no-flows \
+    --models b0maj b0pers b0rev b1 b1fs b1t b2 b2t b3 b3t b4 b4t b5
+python pipeline/src/rerun_tables.py --dir pipeline/results/no_flows_rerun --old pipeline/results/rerun_2026-11-19
+```
+
 Các thí nghiệm theo góp ý 3–6 của thầy nằm trong `src/experiments.py` (đánh giá đầy đủ: `docs/feedback_review/report.md`):
 
 ```

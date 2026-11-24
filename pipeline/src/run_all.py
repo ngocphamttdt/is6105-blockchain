@@ -12,6 +12,8 @@ run_all.py  –  Task 2.8 (Ngọc): chạy thí nghiệm bằng một lệnh. M�
   python pipeline/src/run_all.py --stage e1 --models b1 b2 b3 b4 b5 --no-flows --out pipeline/results/no_flows
                                  # bỏ nhóm Flows khỏi cấu hình ohlcv_onchain; --no-flows bắt buộc có --out
   python pipeline/src/run_all.py --stage tables --out pipeline/results/no_flows                    # bảng cho thư mục đó
+  python pipeline/src/run_all.py --stage e1 --models b1 b2 --no-flows --no-activity --out pipeline/results/no_flows_activity
+                                 # bỏ nhiều nhóm cùng lúc: --no-flows, --no-activity, --no-mining, --no-valuation
 
 Output (pipeline/results/):
   predictions/{model}_{config}.csv   config = ohlcv | ohlcv_onchain; cột date, fold, y_true, p_hat, regime
@@ -22,8 +24,10 @@ Output (pipeline/results/):
 Chạy thử (--every > 1) ghi vào thư mục con every{k}/, không đè kết quả chính.
 --out DIR: cùng cấu trúc predictions/, tables/ nhưng nằm trong DIR, kèm DIR/feature_sets.json (bộ đặc trưng đã dùng;
   chạy tiếp vào DIR với bộ khác, vd. bật/tắt --no-flows, sẽ báo lỗi để không trộn kết quả).
---no-flows: tên cấu hình vẫn là ohlcv | ohlcv_onchain (rerun_tables.py, rerun_figures.py đọc được), nhưng
-  ohlcv_onchain không còn đặc trưng nhóm Flows (Flows A: 6 đặc trưng của cm_SplyExNtv và cm_NetflowExNtv).
+--no-flows / --no-activity / --no-mining / --no-valuation: mỗi cờ bỏ một nhóm On-chain khỏi cấu hình ohlcv_onchain,
+  dùng riêng hoặc kết hợp (không được bỏ cả 4 nhóm). Tên cấu hình vẫn là ohlcv | ohlcv_onchain (rerun_tables.py,
+  rerun_figures.py đọc được). Flows A: 6 đặc trưng (cm_SplyExNtv, cm_NetflowExNtv); Activity, Mining, Valuation:
+  mỗi nhóm 9 đặc trưng (3 cột x logdiff, ma7_30, z90). Bỏ nhóm nào cũng bắt buộc có --out.
 Phương án Flows (A/B) đọc từ flows_set trong configs/features_onchain.yaml.
 Cột regime lấy từ regime/regime_map.csv (HMM của Ngân, task 2.13), ghép theo date + fold.
 """
@@ -240,13 +244,43 @@ def ohlcv10_sets(sets):
     return {"ohlcv": list(FEATURES_10), "ohlcv_onchain": list(FEATURES_10) + onchain}
 
 
+# Cờ dòng lệnh -> nhóm On-chain (data.ONCHAIN_GROUPS). Mỗi nhóm một cờ riêng, kết hợp được: --no-flows --no-activity.
+DROP_FLAGS = {"no_flows": "Flows", "no_activity": "Activity", "no_mining": "Mining", "no_valuation": "Valuation"}
+
+
+def drop_groups_sets(sets, fe_cfg, groups):
+    """Bỏ mọi đặc trưng thuộc các nhóm On-chain `groups` (theo feature_groups của fe_cfg) khỏi mọi cấu hình.
+    Chỉ ohlcv_onchain chứa On-chain nên bộ ohlcv giữ nguyên: dự báo OHLCV-only không đổi.
+    Báo lỗi nếu nhóm không có trong cấu hình đặc trưng hoặc bỏ hết mọi nhóm (ohlcv_onchain sẽ trùng ohlcv)."""
+    fg = features.feature_groups(**fe_cfg)
+    missing = [g for g in groups if not fg.get(g)]
+    if missing:
+        raise ValueError(f"Cấu hình đặc trưng không có nhóm {', '.join(missing)} để bỏ.")
+    if set(fg) <= set(groups):
+        raise ValueError(f"Không được bỏ cả {len(fg)} nhóm On-chain: ohlcv_onchain sẽ trùng ohlcv.")
+    drop = {f for g in groups for f in fg[g]}
+    return {k: [c for c in v if c not in drop] for k, v in sets.items()}
+
+
 def no_flows_sets(sets, fe_cfg):
-    """Bỏ mọi đặc trưng nhóm Flows (theo feature_groups của fe_cfg) khỏi mọi cấu hình. Chỉ ohlcv_onchain chứa Flows,
-    nên bộ ohlcv giữ nguyên: dự báo OHLCV-only không đổi, chỉ cấu hình + On-chain mất Flows."""
-    flows = set(features.feature_groups(**fe_cfg).get("Flows", []))
-    if not flows:
-        raise ValueError("Cấu hình đặc trưng không có nhóm Flows để bỏ.")
-    return {k: [c for c in v if c not in flows] for k, v in sets.items()}
+    """Như drop_groups_sets(..., ["Flows"]) (giữ cho mã cũ)."""
+    return drop_groups_sets(sets, fe_cfg, ["Flows"])
+
+
+def add_drop_args(ap):
+    """Thêm --no-flows, --no-activity, --no-mining, --no-valuation vào parser."""
+    for dest, g in DROP_FLAGS.items():
+        ap.add_argument("--" + dest.replace("_", "-"), dest=dest, action="store_true",
+                        help=f"bỏ nhóm {g} khỏi cấu hình ohlcv_onchain (bắt buộc có --out)")
+
+
+def dropped_groups(args):
+    """Danh sách nhóm bị bỏ theo các cờ --no-*, thứ tự như DROP_FLAGS."""
+    return [g for dest, g in DROP_FLAGS.items() if getattr(args, dest, False)]
+
+
+def drop_label(groups):
+    return f" (BỎ {', '.join(groups)})" if groups else ""
 
 
 def out_base(out):
@@ -254,21 +288,35 @@ def out_base(out):
     return RESULTS if out is None else data_mod.ROOT / out
 
 
-def check_no_flows_out(base, no_flows):
-    if no_flows and Path(base).resolve() == RESULTS.resolve():
-        raise ValueError("--no-flows cần --out <thư mục riêng>: không ghi dự báo bỏ Flows đè lên kết quả E1 "
+def check_drop_out(base, groups):
+    """groups: danh sách nhóm bị bỏ (hoặc bool như cũ). Có bỏ nhóm thì không được ghi vào pipeline/results/."""
+    if groups and Path(base).resolve() == RESULTS.resolve():
+        flags = " ".join("--" + d.replace("_", "-") for d, g in DROP_FLAGS.items()
+                         if groups is True and g == "Flows" or groups is not True and g in groups)
+        raise ValueError(f"{flags} cần --out <thư mục riêng>: không ghi dự báo bỏ nhóm On-chain đè lên kết quả E1 "
                          "chính trong pipeline/results/.")
 
 
+check_no_flows_out = check_drop_out   # tên cũ
+
+
+def _normalize_rec(rec):
+    """feature_sets.json cũ ghi no_flows: bool; đổi sang drop_groups để so được với bản mới."""
+    rec = dict(rec)
+    if "no_flows" in rec and "drop_groups" not in rec:
+        rec["drop_groups"] = ["Flows"] if rec.pop("no_flows") else []
+    return rec
+
+
 def record_feature_sets(out_dir, sets, **info):
-    """Ghi {out_dir}/feature_sets.json: tuỳ chọn chạy (flows_set, no_flows) và bộ đặc trưng của từng cấu hình.
-    Thư mục đã có file này với nội dung khác thì báo lỗi, để không trộn dự báo có Flows và bỏ Flows
-    (hoặc 10/11 đặc trưng OHLCV) trong cùng một thư mục."""
+    """Ghi {out_dir}/feature_sets.json: tuỳ chọn chạy (flows_set, drop_groups) và bộ đặc trưng của từng cấu hình.
+    Thư mục đã có file này với nội dung khác thì báo lỗi, để không trộn dự báo bỏ các nhóm khác nhau
+    (hoặc 10/11 đặc trưng OHLCV) trong cùng một thư mục. File cũ ghi no_flows: bool vẫn so được."""
     path = Path(out_dir) / "feature_sets.json"
     rec = {**info, "sets": {k: list(v) for k, v in sets.items()}}
     if path.exists():
-        if json.loads(path.read_text()) != rec:
-            raise ValueError(f"{path} ghi bộ đặc trưng khác lần chạy này (vd. có/không --no-flows). "
+        if _normalize_rec(json.loads(path.read_text())) != _normalize_rec(rec):
+            raise ValueError(f"{path} ghi bộ đặc trưng khác lần chạy này (vd. bỏ nhóm On-chain khác). "
                              f"Chọn --out khác để không trộn kết quả.")
         return path
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -276,22 +324,24 @@ def record_feature_sets(out_dir, sets, **info):
     return path
 
 
-def stage_e1(model_names, every=1, ohlcv10=False, no_flows=False, out=None):
+def stage_e1(model_names, every=1, ohlcv10=False, no_flows=False, out=None, drop_groups=()):
     """out=None: ghi vào pipeline/results/ như trước. Có out: ghi {out}/predictions/, {out}/tables/ và
-    {out}/feature_sets.json. no_flows=True: cấu hình ohlcv_onchain bỏ nhóm Flows (bắt buộc có out)."""
+    {out}/feature_sets.json. drop_groups: các nhóm On-chain bỏ khỏi ohlcv_onchain (bắt buộc có out);
+    no_flows=True tương đương thêm "Flows" vào drop_groups."""
+    groups = [g for g in DROP_FLAGS.values() if g in drop_groups or (no_flows and g == "Flows")]
     base = out_base(out)
-    check_no_flows_out(base, no_flows)
+    check_drop_out(base, groups)
     fe_cfg, wf_cfg = load_config("features_onchain.yaml"), load_config("walkforward.yaml")
     data, sets = build_dataset(load_master(), fe_cfg)
     if ohlcv10:
         sets = ohlcv10_sets(sets)
-    if no_flows:
-        sets = no_flows_sets(sets, fe_cfg)
+    if groups:
+        sets = drop_groups_sets(sets, fe_cfg, groups)
     folds = make_folds(data.loc[data[TARGET].notna(), DATE], **wf_cfg)[::every]
-    print(f"Flows set {fe_cfg['flows_set']}{' (BỎ Flows)' if no_flows else ''}; {len(sets['ohlcv'])} OHLCV, "
+    print(f"Flows set {fe_cfg['flows_set']}{drop_label(groups)}; {len(sets['ohlcv'])} OHLCV, "
           f"{len(sets['ohlcv_onchain'])} tổng; {len(folds)} fold; ghi vào {base}")
     if base.resolve() != RESULTS.resolve():
-        record_feature_sets(base, sets, flows_set=fe_cfg["flows_set"], no_flows=no_flows)
+        record_feature_sets(base, sets, flows_set=fe_cfg["flows_set"], drop_groups=groups)
     sub = "" if every == 1 else f"every{every}"
     run_e1(data, sets, model_names, folds, wf_cfg, base / "predictions" / sub, regime_map=load_regime_map())
     stage_tables(base / "predictions" / sub, base / "tables" / sub)   # gồm cả mô hình chạy từ trước
@@ -396,15 +446,39 @@ def _tests():
     assert len(nf["ohlcv_onchain"]) == len(sets["ohlcv_onchain"]) - len(flows) and flows
     assert no_flows_sets(ohlcv10_sets(sets), fe_cfg)["ohlcv"] == FEATURES_10
     data_mod._raises(lambda: no_flows_sets(sets, {**fe_cfg, "drop_features": flows}), "không có nhóm Flows")
+    # 6a) drop_groups_sets: mỗi nhóm bỏ riêng hoặc kết hợp; bỏ cả 4 nhóm thì báo lỗi
+    fg = features.feature_groups(**fe_cfg)
+    for combo in (["Activity"], ["Mining"], ["Valuation"], ["Flows", "Activity"], ["Flows", "Mining", "Valuation"]):
+        d = drop_groups_sets(sets, fe_cfg, combo)
+        gone = {f for g in combo for f in fg[g]}
+        assert d["ohlcv"] == sets["ohlcv"]
+        assert d["ohlcv_onchain"] == [c for c in sets["ohlcv_onchain"] if c not in gone] and gone
+    assert drop_groups_sets(sets, fe_cfg, ["Flows"]) == nf
+    data_mod._raises(lambda: drop_groups_sets(sets, fe_cfg, list(fg)), "cả 4 nhóm")
+    data_mod._raises(lambda: drop_groups_sets(sets, fe_cfg, ["Nope"]), "không có nhóm Nope")
+    ap_t = argparse.ArgumentParser()
+    add_drop_args(ap_t)
+    assert dropped_groups(ap_t.parse_args(["--no-activity", "--no-flows"])) == ["Flows", "Activity"]
+    assert dropped_groups(ap_t.parse_args([])) == []
     # 6b) feature_sets.json: ghi lần đầu, chạy lại cùng bộ thì được, khác bộ (có Flows) thì báo lỗi
     with tempfile.TemporaryDirectory() as tmp:
-        p = record_feature_sets(tmp, nf, flows_set="A", no_flows=True)
+        p = record_feature_sets(tmp, nf, flows_set="A", drop_groups=["Flows"])
         assert json.loads(p.read_text())["sets"]["ohlcv_onchain"] == nf["ohlcv_onchain"]
-        record_feature_sets(tmp, nf, flows_set="A", no_flows=True)
-        data_mod._raises(lambda: record_feature_sets(tmp, sets, flows_set="A", no_flows=False), "bộ đặc trưng khác")
-    # 6c) --no-flows không được ghi vào pipeline/results/ mặc định
+        record_feature_sets(tmp, nf, flows_set="A", drop_groups=["Flows"])
+        data_mod._raises(lambda: record_feature_sets(tmp, sets, flows_set="A", drop_groups=[]), "bộ đặc trưng khác")
+        na = drop_groups_sets(sets, fe_cfg, ["Flows", "Activity"])
+        data_mod._raises(lambda: record_feature_sets(tmp, na, flows_set="A", drop_groups=["Flows", "Activity"]),
+                         "bộ đặc trưng khác")
+    # file cũ (no_flows: true) vẫn khớp lần chạy mới bỏ Flows
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "feature_sets.json").write_text(json.dumps({"flows_set": "A", "no_flows": True, "sets": nf}))
+        record_feature_sets(tmp, nf, flows_set="A", drop_groups=["Flows"])
+        data_mod._raises(lambda: record_feature_sets(tmp, na, flows_set="A", drop_groups=["Flows", "Activity"]),
+                         "bộ đặc trưng khác")
+    # 6c) bỏ nhóm nào cũng không được ghi vào pipeline/results/ mặc định
     data_mod._raises(lambda: check_no_flows_out(out_base(None), True), "--no-flows cần --out")
-    check_no_flows_out(out_base(None), False)
+    data_mod._raises(lambda: check_drop_out(out_base(None), ["Activity"]), "--no-activity cần --out")
+    check_drop_out(out_base(None), [])
     print("Tất cả test run_all đều PASS")
 
 
@@ -421,21 +495,21 @@ def main(argv=None):
     ap.add_argument("--every", type=int, default=1, help="chỉ chạy mỗi k fold (để chạy thử)")
     ap.add_argument("--ohlcv10", action="store_true",
                     help="dùng 10 đặc trưng OHLCV ban đầu (như dự báo E1 hiện có), bỏ up_today")
-    ap.add_argument("--no-flows", action="store_true",
-                    help="bỏ nhóm Flows khỏi cấu hình ohlcv_onchain (chỉ --stage e1, bắt buộc có --out)")
+    add_drop_args(ap)   # --no-flows, --no-activity, --no-mining, --no-valuation (chỉ --stage e1, bắt buộc có --out)
     ap.add_argument("--out", default=None,
                     help="thư mục kết quả (tính từ gốc repo) cho --stage e1 / tables; mặc định pipeline/results/")
     ap.add_argument("--test", action="store_true", help="chỉ chạy test")
     args = ap.parse_args(argv)
     if not args.test and not args.stage:
         ap.error("cần --stage hoặc --test")
-    if args.no_flows and args.stage != "e1":
-        ap.error("--no-flows chỉ dùng với --stage e1")
+    groups = dropped_groups(args)
+    if groups and args.stage != "e1":
+        ap.error("--no-flows / --no-activity / --no-mining / --no-valuation chỉ dùng với --stage e1")
     if args.out is not None and args.stage not in ("e1", "tables"):
         ap.error("--out chỉ dùng với --stage e1 hoặc tables")
-    if args.no_flows:
+    if groups:
         try:
-            check_no_flows_out(out_base(args.out), True)
+            check_drop_out(out_base(args.out), groups)
         except ValueError as e:
             ap.error(str(e))
 
@@ -443,7 +517,7 @@ def main(argv=None):
     if args.stage == "data":
         stage_data()
     elif args.stage == "e1":
-        stage_e1(args.models, args.every, args.ohlcv10, args.no_flows, args.out)
+        stage_e1(args.models, args.every, args.ohlcv10, out=args.out, drop_groups=groups)
     elif args.stage == "regime":
         stage_regime()
     elif args.stage == "tables":

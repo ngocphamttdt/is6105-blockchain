@@ -73,7 +73,16 @@ python pipeline/src/run_all.py --stage tables                           # tính 
 python pipeline/src/walkforward.py                                      # vẽ lại results/figures/walkforward.png
 ```
 
-**Ghi vào thư mục chỉ định và bỏ nhóm Flows.** `--out DIR` (tính từ gốc repo) ghi `DIR/predictions/`, `DIR/tables/` thay cho `results/`. `--no-flows` bỏ các đặc trưng nhóm Flows khỏi cấu hình `ohlcv_onchain` cho mọi mô hình. Với Flows A, đó là 6 đặc trưng của `cm_SplyExNtv` và `cm_NetflowExNtv`, còn lại 27 On-chain. Bộ `ohlcv` giữ nguyên. Cờ này bắt buộc đi kèm `--out` để không đè kết quả E1 chính. Mỗi thư mục có `feature_sets.json` ghi bộ đặc trưng đã dùng; chạy tiếp vào cùng thư mục với bộ khác (vd. lần có, lần không `--no-flows`) sẽ báo lỗi.
+**Ghi vào thư mục chỉ định và bỏ nhóm On-chain.** `--out DIR` (tính từ gốc repo) ghi `DIR/predictions/`, `DIR/tables/` thay cho `results/`. Mỗi nhóm On-chain có một cờ riêng để bỏ nhóm đó khỏi cấu hình `ohlcv_onchain` cho mọi mô hình; các cờ dùng riêng hoặc kết hợp được (không được bỏ cả 4 nhóm):
+
+| Cờ | Nhóm | Đặc trưng bị bỏ |
+|---|---|---|
+| `--no-flows` | Flows | Flows A: 6 (`cm_SplyExNtv`, `cm_NetflowExNtv`) |
+| `--no-activity` | Activity | 9 (`cm_AdrActCnt`, `cm_TxCnt`, `bc_est_tx_vol_usd`) |
+| `--no-mining` | Mining | 9 (`cm_HashRate`, `cm_FeeTotNtv`, `bc_difficulty`) |
+| `--no-valuation` | Valuation | 9 (`cm_CapMVRVCur`, `puell_multiple`, `nvt_ratio_bc`) |
+
+Vd. `--no-flows --no-activity` còn 33 − 6 − 9 = 18 On-chain. Bộ `ohlcv` giữ nguyên. Các cờ này bắt buộc đi kèm `--out` để không đè kết quả E1 chính. Mỗi thư mục có `feature_sets.json` ghi bộ đặc trưng đã dùng (`drop_groups`); chạy tiếp vào cùng thư mục với bộ khác (vd. lần bỏ Flows, lần bỏ Flows + Activity) sẽ báo lỗi.
 
 ```bash
 python pipeline/src/run_all.py --stage e1 --models b1 b2 b3 b4 b5 --no-flows --out pipeline/results/no_flows
@@ -82,6 +91,10 @@ python pipeline/src/run_all.py --stage tables --out pipeline/results/no_flows
 python pipeline/src/rerun_e1.py --out pipeline/results/no_flows_rerun --no-flows \
     --models b0maj b0pers b0rev b1 b1fs b1t b2 b2t b3 b3t b4 b4t b5
 python pipeline/src/rerun_tables.py --dir pipeline/results/no_flows_rerun --old pipeline/results/rerun_2026-11-19
+# Bỏ Flows và Activity (tương tự với --no-mining, --no-valuation):
+python pipeline/src/rerun_e1.py --out pipeline/results/no_flows_activity --no-flows --no-activity \
+    --models b0maj b0pers b0rev b1 b1fs b1t b2 b2t b3 b3t b4 b4t b5
+python pipeline/src/rerun_tables.py --dir pipeline/results/no_flows_activity --old pipeline/results/rerun_2026-11-19
 ```
 
 Các thí nghiệm theo góp ý 3–6 của thầy nằm trong `src/experiments.py` (đánh giá đầy đủ: `docs/feedback_review/report.md`):

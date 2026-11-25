@@ -279,6 +279,80 @@ Regime từ HMM của Ngân (`regime_map.csv`): Bull 1.250 ngày, Sideways 902 n
 
 **Chưa dùng các con số này để kết luận RQ1, RQ3:** chưa có kiểm định (Vi, 2.3), `b2` và `b4` mới là bản chạy thử.
 
+## Ablation + SHAP (task 5b, 25/11/2026)
+
+Phần phụ, làm sau phép so sánh chính không Flows (`results/no_flows/`, mốc "full"). Thiết kế: [`docs/superpowers/specs/2026-11-24-ablation-shap-design.md`](../docs/superpowers/specs/2026-11-24-ablation-shap-design.md). Không sửa code pipeline; dùng lại `rerun_e1.py`, `rerun_tables.py` với cờ `--no-flows --no-<nhóm>`.
+
+```bash
+# 6 thư mục ablation, mỗi thư mục 13 model (phải ghi --models: mặc định của rerun_e1 thiếu b4, b4t, b5)
+M="b0maj b0pers b0rev b1 b1fs b1t b2 b2t b3 b3t b4 b4t b5"
+for x in "plus_activity --no-mining --no-valuation" "plus_mining --no-activity --no-valuation" \
+         "plus_valuation --no-activity --no-mining" "drop_activity --no-activity" \
+         "drop_mining --no-mining" "drop_valuation --no-valuation"; do
+  set -- $x; d=pipeline/results/ablation/$1; shift
+  python pipeline/src/rerun_e1.py --out $d --no-flows "$@" --models $M
+  python pipeline/src/rerun_tables.py --dir $d
+done
+python pipeline/src/ablation_tables.py      # -> results/ablation/ablation_{summary,delta,reproduce,rank}.csv
+python pipeline/src/shap_analysis.py        # LR, RF, XGBoost; 82 fold -> results/shap/ (cần cài thư viện shap)
+```
+
+- **Bảng gọn để đưa vào báo cáo:** [`results/ablation/ablation_summary.csv`](results/ablation/ablation_summary.csv). Mỗi dòng một model; mỗi cấu hình có 2 cột Δ log-loss (×1000) và Δ DA (điểm %); `*` = p sau Holm < 0,05; `†` = cột full của b4/b4t chạy trên máy khác. Số chi tiết (khoảng tin cậy, p-value) ở `ablation_delta.csv`.
+- `plus_<g>` = OHLCV + nhóm g; `drop_<g>` = 10 OHLCV + 27 on-chain bỏ nhóm g. Mọi Δ = (có on-chain) − (OHLCV), cùng ngày, fold, tuning.
+- Xếp hạng chính: Δ log-loss của `plus_*` (nhỏ = tốt). Phụ: log-loss(drop_g) − log-loss(full), chỉ cho model tái lập được mốc full.
+- **Tái lập mốc của Khoa (max |Δp̂| ≤ 1e-3):** b1–b3t, b5 khớp (b5: 9,4e-6). XGBoost b4/b4t lệch 0,17–0,22 trên máy khác → không có `rank_drop`, bỏ khỏi SHAP.
+- **b5 trên macOS:** tiến trình con của LSTM bị segfault (`BrokenProcessPool`) khi sklearn/xgboost nạp OpenMP trước torch. Cách chạy không cần sửa code: tạo một thư mục riêng chứa `sitecustomize.py` có dòng `import torch` (nếu môi trường đã có `sitecustomize.py` riêng, như Anaconda, thì `exec` file đó ngay sau dòng này), rồi chạy `PYTHONPATH=<thư mục đó> python pipeline/src/rerun_e1.py ... --models b5` và sau đó `rerun_tables.py`.
+
+**Δ log-loss (×1000) khi thêm một nhóm vào OHLCV** (âm = tốt hơn; trong bảng này không ô nào có p_DM sau Holm < 0,05, nhỏ nhất 0,057):
+
+| Model | Activity | Mining | Valuation | Full (27) |
+|---|---|---|---|---|
+| b1 | 3,55 | 2,23 | 0,49 | 5,15 |
+| b1fs | 1,92 | 1,01 | 1,50 | 3,32 |
+| b1t | 1,14 | 2,02 | 1,34 | 2,27 |
+| b2 | −0,45 | −1,46 | 0,38 | −0,91 |
+| b2t | 0,38 | −0,37 | 0,25 | −0,34 |
+| b3 | 15,16 | −3,70 | 14,12 | −6,60 |
+| b3t | 17,55 | 1,06 | 19,36 | −0,02 |
+| b4 | 0,87 | −2,02 | −0,90 | 2,54 |
+| b4t | 1,19 | −0,62 | 0,33 | 2,22 |
+| b5 | 0,91 | 1,94 | 2,73 | 0,20 |
+
+Cột Full (27) lấy từ `results/no_flows` (máy của Khoa). Với b4/b4t, XGBoost không tái lập được trên máy khác, nên cột này không so trực tiếp được với các cột plus_* của hai model đó.
+
+- Chỉ 7/30 ô `plus_*` có log-loss tốt hơn OHLCV. Mining đứng đầu `rank_plus` ở 7/10 model, nhưng ở b1fs và b3t đó chỉ là nhóm ít làm kém nhất; 5 model cải thiện log-loss khi thêm Mining, lớn nhất −0,0037 (b3), không ô nào có ý nghĩa sau Holm.
+- Δ DA của `plus_*` nằm trong [−2,5; +0,9] điểm %.
+
+**Δ log-loss (×1000) khi bỏ một nhóm khỏi 27 on-chain** (so với OHLCV, cùng quy ước):
+
+| Model | Bỏ Activity | Bỏ Mining | Bỏ Valuation |
+|---|---|---|---|
+| b1 | 2,21 | 3,53 | **5,62** |
+| b1fs | 1,72 | 2,36 | 3,02 |
+| b1t | 1,57 | 2,34 | 2,14 |
+| b2 | −0,36 | −0,52 | −1,45 |
+| b2t | 0,06 | −0,25 | −0,62 |
+| b3 | −4,65 | −4,61 | −6,07 |
+| b3t | 0,11 | −0,95 | 1,09 |
+| b4 | 0,17 | −0,43 | −1,76 |
+| b4t | 1,67 | 0,17 | 0,40 |
+| b5 | 1,96 | 0,54 | 0,32 |
+
+- Trong 30 ô `drop_*`, chỉ **drop_valuation / b1** có p_DM sau Holm < 0,05 (0,014), theo chiều on-chain (Activity + Mining) làm log-loss **kém đi**. Không cấu hình nào cho thấy on-chain cải thiện có ý nghĩa.
+
+**SHAP** (`results/shap/shap_groups.csv`; tổng mean|SHAP| theo nhóm, đơn vị log-odds cho LR, xác suất cho RF):
+
+| Model | OHLCV (10; b1t thêm `up_lag1`) | Activity (9) | Mining (9) | Valuation (9) | Tỷ trọng on-chain |
+|---|---|---|---|---|---|
+| b1 | 0,257 | 0,191 | 0,204 | 0,224 | 0,71 |
+| b1fs | 0,126 | 0,064 | 0,052 | 0,063 | 0,59 |
+| b1t | 0,090 | 0,054 | 0,054 | 0,065 | 0,66 |
+| b2 | 0,039 | 0,026 | 0,025 | 0,026 | 0,66 |
+| b2t | 0,029 | 0,018 | 0,014 | 0,017 | 0,63 |
+
+- Model dùng on-chain nhiều (59–71% tổng |SHAP|, một phần do on-chain có 27 cột so với 10 cột OHLCV), nhưng điều đó không làm dự báo ngoài mẫu tốt hơn (bảng Δ ở trên).
+- Thứ hạng nhóm theo SHAP chỉ khớp ablation ở b1 (`shap_vs_ablation.csv`); 4 model còn lại không khớp.
+
 ## Điểm cần nhóm chốt
 
 1. **Phương án Flows (họp 1.19):** đang dùng A (`cm_NetflowExNtv` + `cm_SplyExNtv`). Nếu chốt B, đổi `flows_set: B` trong `configs/features_onchain.yaml` rồi chạy lại các cấu hình OHLCV + On-chain.

@@ -1,0 +1,43 @@
+{
+ "flows_set": "A",
+ "drop_groups": [
+  "Flows",
+  "Activity",
+  "Mining"
+ ],
+ "sets": {
+  "ohlcv": [
+   "logret_lag1",
+   "logret_lag2",
+   "logret_lag3",
+   "logret_lag4",
+   "logret_lag5",
+   "hl_range",
+   "dlog_volume",
+   "rsi_14",
+   "rv_7d",
+   "rv_30d"
+  ],
+  "ohlcv_onchain": [
+   "logret_lag1",
+   "logret_lag2",
+   "logret_lag3",
+   "logret_lag4",
+   "logret_lag5",
+   "hl_range",
+   "dlog_volume",
+   "rsi_14",
+   "rv_7d",
+   "rv_30d",
+   "cm_CapMVRVCur_logdiff",
+   "cm_CapMVRVCur_ma7_30",
+   "cm_CapMVRVCur_z90",
+   "puell_multiple_logdiff",
+   "puell_multiple_ma7_30",
+   "puell_multiple_z90",
+   "nvt_ratio_bc_logdiff",
+   "nvt_ratio_bc_ma7_30",
+   "nvt_ratio_bc_z90"
+  ]
+ }
+}

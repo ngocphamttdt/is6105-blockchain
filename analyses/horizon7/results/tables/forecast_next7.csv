@@ -1,0 +1,43 @@
+date,target_date,model,config,p_up,params
+2026-08-25,2026-09-01,b1,ohlcv,0.5567873331570741,C=0.01
+2026-08-26,2026-09-02,b1,ohlcv,0.5448452736605273,C=0.01
+2026-08-27,2026-09-03,b1,ohlcv,0.5393640195489996,C=0.01
+2026-08-28,2026-09-04,b1,ohlcv,0.5583644441504817,C=0.01
+2026-08-29,2026-09-05,b1,ohlcv,0.5241553625744356,C=0.01
+2026-08-30,2026-09-06,b1,ohlcv,0.5268636238888128,C=0.01
+2026-08-31,2026-09-07,b1,ohlcv,0.5258347155648693,C=0.01
+2026-08-25,2026-09-01,b1,ohlcv_onchain,0.5388304642418619,C=0.01
+2026-08-26,2026-09-02,b1,ohlcv_onchain,0.537105503284597,C=0.01
+2026-08-27,2026-09-03,b1,ohlcv_onchain,0.5673878447102607,C=0.01
+2026-08-28,2026-09-04,b1,ohlcv_onchain,0.6187212506771778,C=0.01
+2026-08-29,2026-09-05,b1,ohlcv_onchain,0.5479662590342161,C=0.01
+2026-08-30,2026-09-06,b1,ohlcv_onchain,0.5505332658318514,C=0.01
+2026-08-31,2026-09-07,b1,ohlcv_onchain,0.5778628899992264,C=0.01
+2026-08-25,2026-09-01,b1t,ohlcv,0.571748339285056,"lag1+sign, C=1, l1=0, cw=balanced"
+2026-08-26,2026-09-02,b1t,ohlcv,0.42935190600184925,"lag1+sign, C=1, l1=0, cw=balanced"
+2026-08-27,2026-09-03,b1t,ohlcv,0.45463661228118163,"lag1+sign, C=1, l1=0, cw=balanced"
+2026-08-28,2026-09-04,b1t,ohlcv,0.5038660546778306,"lag1+sign, C=1, l1=0, cw=balanced"
+2026-08-29,2026-09-05,b1t,ohlcv,0.4260141878786445,"lag1+sign, C=1, l1=0, cw=balanced"
+2026-08-30,2026-09-06,b1t,ohlcv,0.568292825280237,"lag1+sign, C=1, l1=0, cw=balanced"
+2026-08-31,2026-09-07,b1t,ohlcv,0.44397670581728843,"lag1+sign, C=1, l1=0, cw=balanced"
+2026-08-25,2026-09-01,b1t,ohlcv_onchain,0.5000000000000001,"sign+oc, C=0.0001, l1=0.5, cw=balanced"
+2026-08-26,2026-09-02,b1t,ohlcv_onchain,0.5000000000000001,"sign+oc, C=0.0001, l1=0.5, cw=balanced"
+2026-08-27,2026-09-03,b1t,ohlcv_onchain,0.5000000000000001,"sign+oc, C=0.0001, l1=0.5, cw=balanced"
+2026-08-28,2026-09-04,b1t,ohlcv_onchain,0.5000000000000001,"sign+oc, C=0.0001, l1=0.5, cw=balanced"
+2026-08-29,2026-09-05,b1t,ohlcv_onchain,0.5000000000000001,"sign+oc, C=0.0001, l1=0.5, cw=balanced"
+2026-08-30,2026-09-06,b1t,ohlcv_onchain,0.5000000000000001,"sign+oc, C=0.0001, l1=0.5, cw=balanced"
+2026-08-31,2026-09-07,b1t,ohlcv_onchain,0.5000000000000001,"sign+oc, C=0.0001, l1=0.5, cw=balanced"
+2026-08-25,2026-09-01,b2t,ohlcv,0.5305675124660174,"max_features=sqrt, max_samples=None, min_samples_leaf=200"
+2026-08-26,2026-09-02,b2t,ohlcv,0.5207317983140943,"max_features=sqrt, max_samples=None, min_samples_leaf=200"
+2026-08-27,2026-09-03,b2t,ohlcv,0.5121732936416026,"max_features=sqrt, max_samples=None, min_samples_leaf=200"
+2026-08-28,2026-09-04,b2t,ohlcv,0.5327699582858259,"max_features=sqrt, max_samples=None, min_samples_leaf=200"
+2026-08-29,2026-09-05,b2t,ohlcv,0.520073761716566,"max_features=sqrt, max_samples=None, min_samples_leaf=200"
+2026-08-30,2026-09-06,b2t,ohlcv,0.5338352940618404,"max_features=sqrt, max_samples=None, min_samples_leaf=200"
+2026-08-31,2026-09-07,b2t,ohlcv,0.5209167783382251,"max_features=sqrt, max_samples=None, min_samples_leaf=200"
+2026-08-25,2026-09-01,b2t,ohlcv_onchain,0.5171747710090716,"max_features=0.5, max_samples=None, min_samples_leaf=150"
+2026-08-26,2026-09-02,b2t,ohlcv_onchain,0.5126063584285163,"max_features=0.5, max_samples=None, min_samples_leaf=150"
+2026-08-27,2026-09-03,b2t,ohlcv_onchain,0.49508062336291675,"max_features=0.5, max_samples=None, min_samples_leaf=150"
+2026-08-28,2026-09-04,b2t,ohlcv_onchain,0.5281978413557189,"max_features=0.5, max_samples=None, min_samples_leaf=150"
+2026-08-29,2026-09-05,b2t,ohlcv_onchain,0.5660171100101511,"max_features=0.5, max_samples=None, min_samples_leaf=150"
+2026-08-30,2026-09-06,b2t,ohlcv_onchain,0.5468708750001144,"max_features=0.5, max_samples=None, min_samples_leaf=150"
+2026-08-31,2026-09-07,b2t,ohlcv_onchain,0.5341468222464979,"max_features=0.5, max_samples=None, min_samples_leaf=150"

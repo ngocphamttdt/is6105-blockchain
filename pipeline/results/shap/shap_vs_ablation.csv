@@ -1,0 +1,6 @@
+model,rank_shap,rank_plus,rank_drop,match
+b1,Valuation>Mining>Activity,Valuation>Mining>Activity,Valuation>Mining>Activity,khớp hoàn toàn
+b1fs,Activity>Valuation>Mining,Mining>Valuation>Activity,Valuation>Mining>Activity,không khớp
+b1t,Valuation>Activity>Mining,Activity>Valuation>Mining,Mining>Valuation>Activity,không khớp
+b2,Activity>Valuation>Mining,Mining>Activity>Valuation,Activity>Mining>Valuation,không khớp
+b2t,Activity>Valuation>Mining,Mining>Valuation>Activity,Activity>Mining>Valuation,không khớp

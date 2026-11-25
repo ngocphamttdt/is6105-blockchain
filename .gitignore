@@ -18,3 +18,10 @@ pipeline/results/**/every*/
 Thumbs.db
 .idea/
 .vscode/
+
+
+# Ablation + SHAP (task 5b): giữ predictions, tables và bảng tổng hợp; bỏ log và SHAP thô
+pipeline/results/ablation/*.log
+pipeline/results/ablation/*/log/
+pipeline/results/shap/*.log
+pipeline/results/shap/shap_values/

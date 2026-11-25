@@ -1,0 +1,11 @@
+model,rank_plus,rank_drop
+b1,Valuation>Mining>Activity,Valuation>Mining>Activity
+b1fs,Mining>Valuation>Activity,Valuation>Mining>Activity
+b1t,Activity>Valuation>Mining,Mining>Valuation>Activity
+b2,Mining>Activity>Valuation,Activity>Mining>Valuation
+b2t,Mining>Valuation>Activity,Activity>Mining>Valuation
+b3,Mining>Valuation>Activity,Mining>Activity>Valuation
+b3t,Mining>Activity>Valuation,Valuation>Activity>Mining
+b4,Mining>Valuation>Activity,
+b4t,Mining>Valuation>Activity,
+b5,Activity>Mining>Valuation,Activity>Mining>Valuation

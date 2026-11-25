@@ -1,0 +1,43 @@
+{
+ "flows_set": "A",
+ "drop_groups": [
+  "Flows",
+  "Activity",
+  "Valuation"
+ ],
+ "sets": {
+  "ohlcv": [
+   "logret_lag1",
+   "logret_lag2",
+   "logret_lag3",
+   "logret_lag4",
+   "logret_lag5",
+   "hl_range",
+   "dlog_volume",
+   "rsi_14",
+   "rv_7d",
+   "rv_30d"
+  ],
+  "ohlcv_onchain": [
+   "logret_lag1",
+   "logret_lag2",
+   "logret_lag3",
+   "logret_lag4",
+   "logret_lag5",
+   "hl_range",
+   "dlog_volume",
+   "rsi_14",
+   "rv_7d",
+   "rv_30d",
+   "cm_HashRate_logdiff",
+   "cm_HashRate_ma7_30",
+   "cm_HashRate_z90",
+   "cm_FeeTotNtv_logdiff",
+   "cm_FeeTotNtv_ma7_30",
+   "cm_FeeTotNtv_z90",
+   "bc_difficulty_logdiff",
+   "bc_difficulty_ma7_30",
+   "bc_difficulty_z90"
+  ]
+ }
+}

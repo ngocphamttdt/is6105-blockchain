@@ -152,6 +152,7 @@ Các phân tích này phần lớn được làm theo góp ý của giảng viê
 | `up_today/` | Thêm đặc trưng `up_today` (dấu return hôm nay), chạy lại B1 và B3 | `reports/up_today_report.md` |
 | `paper_replication/` | Tái lập các bài báo tham khảo (Hafid 2024, …) và áp dụng lên dữ liệu của nhóm | `<bài báo>/reports/` |
 | `tuning_summary/` | Bảng tổng hợp **trước / sau tuning** của mọi baseline B0–B5 (chưa tune · grid gốc · tune lại), tính lại từ các file dự báo đã có | `reports/tuning_summary.md` |
+| `horizon7/` | Task 6: dự báo hướng giá **7 ngày** tới (gap 7 ngày, cùng fold, cùng đặc trưng bỏ Flows), On-chain có giúp ích không; so với tầm 1 ngày | `reports/horizon7.md` |
 
 ### (7) `docs/` — Tài liệu
 
